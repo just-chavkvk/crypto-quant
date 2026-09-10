@@ -12,6 +12,11 @@ from quant_lab.backtest.engine import run_backtest, run_buy_and_hold
 from quant_lab.backtest.models import BacktestConfig
 from quant_lab.data.download import DownloadRequest, download_ohlcv
 from quant_lab.data.market import load_market_data
+from quant_lab.research.edge_report import (
+    edge_report_lines,
+    run_edge_search_paths,
+    write_edge_report_csv,
+)
 from quant_lab.research.sweep import EmaSweepConfig, run_ema_sweep
 from quant_lab.strategies.base import EmaBreakoutStrategy
 from quant_lab.validation.lookahead import assert_no_lookahead
@@ -226,4 +231,39 @@ def sweep(
         pd.DataFrame([asdict(candidate) for candidate in report.candidates]).to_csv(
             results_out, index=False
         )
+        typer.echo(f"results: {results_out}")
+
+
+@app.command("edge-search")
+def edge_search(
+    btc_1h_path: Path,
+    eth_1h_path: Path,
+    btc_4h_path: Path,
+    eth_4h_path: Path,
+    fee_bps: float = 5.0,
+    slippage_bps: float = 2.0,
+    risk_per_trade_pct: float = 1.0,
+    stop_loss_pct: float = 5.0,
+    volatility_slippage_multiplier: float = 0.02,
+    results_out: Path | None = None,
+) -> None:
+    backtest_config = _backtest_config(
+        fee_bps,
+        slippage_bps,
+        risk_per_trade_pct,
+        stop_loss_pct,
+        None,
+        volatility_slippage_multiplier,
+    )
+    report = run_edge_search_paths(
+        btc_1h_path,
+        eth_1h_path,
+        btc_4h_path,
+        eth_4h_path,
+        backtest_config,
+    )
+    for line in edge_report_lines(report):
+        typer.echo(line)
+    if results_out is not None:
+        write_edge_report_csv(report, results_out)
         typer.echo(f"results: {results_out}")

@@ -27,6 +27,8 @@ Performance metrics + BTC Buy & Hold benchmark
         ↓
 Train / Out-of-Sample / Walk-Forward validation
         ↓
+Cross-asset / cross-timeframe Edge family search
+        ↓
 PASS / FAIL research verdict
 ```
 
@@ -160,6 +162,30 @@ uv run quant sweep data/cache/binance/BTC_USDT/1h.parquet \
 
 `fast >= slow`인 잘못된 조합은 자동으로 제외합니다. 순위는 Walk-Forward PASS 여부, Sharpe, Total Return 순서로 정렬합니다.
 
+## Edge family search
+
+하나의 숫자 조합만 잘 맞는 전략을 고르는 대신, 서로 다른 원리의 Edge를 각각 여러 설정으로 시험합니다.
+
+- Momentum: 일정 기간 강했던 방향이 이어지는지
+- Donchian breakout: 이전 고점을 돌파한 뒤 추세가 이어지는지
+- Volume breakout: 거래량 증가를 동반한 돌파가 더 강한지
+- Volatility breakout: 평소보다 큰 가격 움직임을 동반한 돌파가 더 강한지
+
+각 후보는 BTC/ETH와 1h/4h에서 같은 시간 길이로 변환되어 비교됩니다. 2020~2023은 후보 탐색, 2024~2025는 별도 검증에 사용하고, 각 Edge 가족의 대표 설정을 고른 뒤에만 2026 데이터를 마지막 holdout 시험에 사용합니다.
+
+```bash
+uv run quant edge-search \
+  artifacts/edge_search/BTC_USDT_1h_raw.parquet \
+  artifacts/edge_search/ETH_USDT_1h_raw.parquet \
+  artifacts/edge_search/BTC_USDT_4h_raw.parquet \
+  artifacts/edge_search/ETH_USDT_4h_raw.parquet \
+  --risk-per-trade-pct 1 \
+  --stop-loss-pct 5 \
+  --results-out artifacts/edge_search/edge_families.csv
+```
+
+2026 결과는 가족 대표를 선택한 뒤에만 열어봅니다. 따라서 2026 성적이 좋았던 설정으로 다시 고르는 방식의 과최적화를 막습니다.
+
 ## Lookahead protection
 
 백테스트 자체는 신호를 다음 봉 시가에 실행합니다. 추가로 `assert_no_lookahead`가 미래 행을 잘라냈을 때 과거 신호가 바뀌는 전략을 탐지합니다. 이 검사는 미래 `shift(-1)` 같은 명백한 누수를 잡는 방어선이며, 모든 형태의 데이터 누수를 자동으로 증명하는 도구는 아닙니다.
@@ -184,4 +210,4 @@ GitHub Actions도 같은 검증 순서를 실행합니다.
 - AI Agent 자동 실행
 - paper/live execution adapter
 
-다음 연구 단계는 더 강한 OOS selection 규칙, funding/OI/liquidation 데이터셋, order-book 기반 event-driven validation을 추가하는 것입니다.
+다음 연구 단계는 살아남은 서로 다른 Edge 가족을 paper trading에서 동시에 추적하고, funding/OI/liquidation 데이터 기반 Edge와 order-book 기반 event-driven validation을 추가하는 것입니다.
