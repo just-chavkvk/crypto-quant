@@ -26,7 +26,7 @@ def load_market_data(path: str | Path) -> pd.DataFrame:
     return df.sort_index()
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class MarketUniverse:
-    symbols: tuple[str, ...] = ("BTCUSDT", "ETHUSDT")
+    symbols: tuple[str, ...] = ("BTC/USDT", "ETH/USDT")
     timeframe: str = "1h"

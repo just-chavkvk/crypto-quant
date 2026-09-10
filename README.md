@@ -1,71 +1,159 @@
 # Crypto Quant Lab
 
-Personal BTC/ETH quant research platform built around a simple idea: **research fast, validate realistically, trade only after forward testing**.
+BTC/ETH 시장에서 **Alpha / Edge 후보를 찾고, 백테스트와 검증으로 가짜 전략을 최대한 걸러내는 Quant Research Lab**입니다.
 
-The code is framework-agnostic. It borrows design ideas from mature open-source systems, but strategy logic stays independent so adapters for vectorbt, NautilusTrader, Freqtrade, or custom execution can be added later without rewriting the core strategy.
+이 저장소의 v0.1 목적은 자동매매가 아닙니다. Live Trading, 실제 자금 주문, 거래소 API key를 이용한 주문, AI Agent 실행은 현재 범위에 포함하지 않습니다.
 
-## v0.1 architecture
+## Architecture
 
 ```text
-Market Data
-   ↓
-Strategy (framework-agnostic target exposure)
-   ↓
-Risk / Position Sizing
-   ↓
-Fast Backtester
-   ├─ one-bar delayed execution
-   ├─ fees
-   └─ slippage
-   ↓
-Walk-forward validation
-   ↓
-Report / later realistic-engine adapter
+Public OHLCV (CCXT / Binance)
+        ↓
+Parquet cache + gap / duplicate checks
+        ↓
+Strategy signal (-1 / 0 / +1 target position)
+        ↓
+Lookahead guard
+        ↓
+Next-bar-open execution backtester
+        ├─ adverse slippage
+        ├─ entry + exit fees
+        └─ Trade Ledger
+        ↓
+Performance metrics + BTC Buy & Hold benchmark
+        ↓
+Train / Out-of-Sample / Walk-Forward validation
+        ↓
+PASS / FAIL research verdict
 ```
 
-## Included now
+기존 v0.1은 신호를 한 칸 shift한 뒤 close-to-close 수익률에 곱하는 구조였습니다. 실행 시점과 실제 진입/청산 가격을 거래 원장과 정확히 맞추기 어렵기 때문에, 현재 엔진은 **t 시점 종가로 만들어진 신호를 t+1 봉 시가에 체결**하는 방식으로 바꿨습니다.
 
-- BTC/ETH-oriented OHLCV CSV/Parquet loader
-- framework-independent `Strategy` protocol
-- EMA + breakout example strategy
-- cost-aware vectorized fast backtester
-- lookahead guard via one-bar signal shift
-- total return, MDD and Sharpe metrics
-- stop-distance/risk-budget position sizing helper
-- chronological walk-forward splitter
-- CLI entry point
-- smoke tests
+### Execution contract
+
+- 전략은 현재 봉까지의 데이터로 신호를 만듭니다.
+- 신호는 한 봉 뒤의 시가에서 체결됩니다.
+- slippage는 주문 방향에 불리하게 적용됩니다.
+- fee는 진입과 청산 양쪽에 각각 적용됩니다.
+- 백테스트 마지막에 열린 포지션은 마지막 종가에서 강제 청산해 원장을 닫습니다.
+- 현재 v0.1 포지션은 `-1 / 0 / +1`의 discrete target입니다. 별도 risk sizing helper는 존재하지만 현재 엔진의 full-notional target과 아직 연결하지 않았습니다.
 
 ## Install
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
-pip install -e ".[dev]"
+uv sync --extra dev
+uv run quant --help
 ```
 
-## Run a backtest
+## Download BTC / ETH OHLCV
 
-Input must contain `open, high, low, close, volume`; `timestamp` is optional and will be parsed as UTC.
+Public OHLCV만 사용하므로 API key가 필요 없습니다.
+
+지원 심볼:
+
+- `BTC/USDT`
+- `ETH/USDT`
+
+지원 timeframe:
+
+- `1h`
+- `4h`
 
 ```bash
-quant test data/BTCUSDT-1h.parquet
+uv run quant data download BTC/USDT --timeframe 1h
+uv run quant data download ETH/USDT --timeframe 4h
 ```
 
-Customize costs/strategy parameters:
+시작일/종료일도 지정할 수 있습니다.
 
 ```bash
-quant test data/BTCUSDT-1h.parquet --fee-bps 5 --slippage-bps 2 --fast 50 --slow 200 --breakout 20
+uv run quant data download BTC/USDT \
+  --timeframe 1h \
+  --start 2023-01-01T00:00:00Z \
+  --end 2024-01-01T00:00:00Z
 ```
 
-## Next milestones
+데이터는 `data/cache/binance/<SYMBOL>/<TIMEFRAME>.parquet`에 저장됩니다. pagination, timestamp 정렬, 중복 제거, 누락 candle 검사, 기존 cache 재사용, 앞/뒤/중간 누락 구간 재수집을 처리합니다.
 
-1. Exchange data downloader/cache for BTC/ETH.
-2. Richer metrics and trade ledger.
-3. Parameter sweep / fast research adapter.
-4. Out-of-sample and walk-forward report aggregation.
-5. Realistic event-driven validation adapter.
-6. Paper-trading execution adapter.
-7. Funding/OI/liquidation/order-book feature datasets.
+## Backtest + Trade Ledger + Benchmark
 
-The project should not send live orders until realistic validation and paper trading are implemented and explicitly enabled.
+```bash
+uv run quant test data/cache/binance/BTC_USDT/1h.parquet \
+  --symbol BTC/USDT \
+  --fee-bps 5 \
+  --slippage-bps 2 \
+  --ledger-out artifacts/btc-ledger.csv
+```
+
+Trade Ledger에는 다음 값이 기록됩니다.
+
+- symbol
+- entry time / entry price / entry fill price
+- exit time / exit price / exit fill price
+- position size
+- gross PnL
+- fee
+- slippage cost
+- net PnL
+- return %
+- holding period
+
+성과 지표는 다음을 계산합니다.
+
+- Total Return
+- CAGR
+- Max Drawdown
+- Sharpe Ratio
+- Sortino Ratio
+- Win Rate
+- Loss Rate
+- Profit Factor
+- Average Win
+- Average Loss
+- Expectancy
+- Number of Trades
+
+BTC 전략은 같은 데이터로 BTC Buy & Hold benchmark를 자동 표시합니다. ETH 전략 등에서 별도 BTC benchmark를 쓰려면 `--benchmark-path`를 지정할 수 있습니다. benchmark에도 전략과 동일한 fee/slippage 설정이 적용됩니다.
+
+## Walk-Forward validation
+
+```bash
+uv run quant walk-forward data/cache/binance/BTC_USDT/1h.parquet \
+  --symbol BTC/USDT \
+  --train-bars 1000 \
+  --test-bars 250
+```
+
+출력은 반드시 세 구간을 따로 보여줍니다.
+
+- `TRAIN`
+- `OUT OF SAMPLE`
+- `WALK FORWARD`
+
+현재 보수적 v0.1 판정은 각 OOS window의 Total Return과 Sharpe가 양수이고, 연결된 Walk-Forward Total Return도 양수일 때만 PASS입니다. Train에서 좋아 보여도 OOS에서 무너지면 FAIL입니다.
+
+## Lookahead protection
+
+백테스트 자체는 신호를 다음 봉 시가에 실행합니다. 추가로 `assert_no_lookahead`가 미래 행을 잘라냈을 때 과거 신호가 바뀌는 전략을 탐지합니다. 이 검사는 미래 `shift(-1)` 같은 명백한 누수를 잡는 방어선이며, 모든 형태의 데이터 누수를 자동으로 증명하는 도구는 아닙니다.
+
+## Validation commands
+
+```bash
+uv run ruff check .
+uv run basedpyright
+uv run pytest -q
+uv run quant --help
+uv run quant data --help
+```
+
+GitHub Actions도 같은 검증 순서를 실행합니다.
+
+## Explicitly out of scope for v0.1
+
+- Live Trading
+- 실제 돈 주문
+- 거래소 주문 API key
+- AI Agent 자동 실행
+- paper/live execution adapter
+
+다음 연구 단계는 parameter sweep, 더 강한 OOS selection 규칙, funding/OI/liquidation 데이터셋, 현실적인 event-driven validation을 추가하는 것입니다.

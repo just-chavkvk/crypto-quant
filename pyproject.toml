@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Framework-agnostic crypto quant research lab"
 requires-python = ">=3.11"
 dependencies = [
+  "ccxt>=4,<5",
   "numpy>=2.0",
   "pandas>=2.2",
   "pyarrow>=17.0",
@@ -11,7 +12,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = [
+  "basedpyright>=1.31",
+  "pandas-stubs>=2.2",
+  "pytest>=8.0",
+  "ruff>=0.12",
+]
 
 [project.scripts]
 quant = "quant_lab.cli:app"
@@ -22,3 +28,20 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["B", "E4", "E7", "E9", "F", "I", "RUF", "UP"]
+
+[tool.basedpyright]
+include = ["src", "tests"]
+pythonVersion = "3.11"
+typeCheckingMode = "all"
+reportAny = "none"
+reportMissingTypeStubs = "none"

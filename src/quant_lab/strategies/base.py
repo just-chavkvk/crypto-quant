@@ -7,14 +7,15 @@ import pandas as pd
 
 
 class Strategy(Protocol):
-    name: str
+    @property
+    def name(self) -> str: ...
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Return target exposure in [-1, 1], indexed like data."""
         ...
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class EmaBreakoutStrategy:
     fast: int = 50
     slow: int = 200
@@ -30,7 +31,7 @@ class EmaBreakoutStrategy:
         long_entry = (fast_ema > slow_ema) & (close > prior_high)
         flat = fast_ema < slow_ema
 
-        signal = pd.Series(0.0, index=data.index)
+        signal = pd.Series(pd.NA, index=data.index, dtype="Float64")
         signal.loc[long_entry] = 1.0
         signal.loc[flat] = 0.0
-        return signal.replace(0.0, pd.NA).ffill().fillna(0.0)
+        return signal.ffill().fillna(0.0).astype(float)
