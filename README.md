@@ -17,6 +17,9 @@ Lookahead guard
         ↓
 Next-bar-open execution backtester
         ├─ adverse slippage
+        ├─ volatility-aware slippage
+        ├─ candle-volume participation cap
+        ├─ risk-budget sizing + stop loss
         ├─ entry + exit fees
         └─ Trade Ledger
         ↓
@@ -36,7 +39,10 @@ PASS / FAIL research verdict
 - slippage는 주문 방향에 불리하게 적용됩니다.
 - fee는 진입과 청산 양쪽에 각각 적용됩니다.
 - 백테스트 마지막에 열린 포지션은 마지막 종가에서 강제 청산해 원장을 닫습니다.
-- 현재 v0.1 포지션은 `-1 / 0 / +1`의 discrete target입니다. 별도 risk sizing helper는 존재하지만 현재 엔진의 full-notional target과 아직 연결하지 않았습니다.
+- 현재 v0.1 전략 신호는 `-1 / 0 / +1`의 discrete target입니다.
+- `risk_per_trade`와 `stop_loss_pct`를 함께 지정하면 손절까지의 거리로 포지션 크기를 계산하고, 봉의 high/low가 손절선을 건드리면 손절을 실행합니다.
+- `max_volume_participation`을 지정하면 한 봉의 거래량 중 허용한 비율만 체결하고, 목표 수량에 도달할 때까지 다음 봉에서 이어서 진입합니다.
+- `volatility_slippage_multiplier`를 지정하면 high-low 범위가 큰 봉일수록 불리한 체결 가격을 추가로 반영합니다.
 
 ## Install
 
@@ -82,6 +88,10 @@ uv run quant test data/cache/binance/BTC_USDT/1h.parquet \
   --symbol BTC/USDT \
   --fee-bps 5 \
   --slippage-bps 2 \
+  --risk-per-trade-pct 1 \
+  --stop-loss-pct 2 \
+  --max-volume-participation-pct 10 \
+  --volatility-slippage-multiplier 0.25 \
   --ledger-out artifacts/btc-ledger.csv
 ```
 
@@ -132,6 +142,24 @@ uv run quant walk-forward data/cache/binance/BTC_USDT/1h.parquet \
 
 현재 보수적 v0.1 판정은 각 OOS window의 Total Return과 Sharpe가 양수이고, 연결된 Walk-Forward Total Return도 양수일 때만 PASS입니다. Train에서 좋아 보여도 OOS에서 무너지면 FAIL입니다.
 
+## Parameter sweep
+
+EMA와 breakout 설정을 여러 조합으로 자동 실행하고 Walk-Forward 결과가 좋은 순서대로 보여줍니다.
+
+```bash
+uv run quant sweep data/cache/binance/BTC_USDT/1h.parquet \
+  --symbol BTC/USDT \
+  --fast-values 10,20,50 \
+  --slow-values 50,100,200 \
+  --breakout-values 10,20,40 \
+  --train-bars 1000 \
+  --test-bars 250 \
+  --top 10 \
+  --results-out artifacts/sweep.csv
+```
+
+`fast >= slow`인 잘못된 조합은 자동으로 제외합니다. 순위는 Walk-Forward PASS 여부, Sharpe, Total Return 순서로 정렬합니다.
+
 ## Lookahead protection
 
 백테스트 자체는 신호를 다음 봉 시가에 실행합니다. 추가로 `assert_no_lookahead`가 미래 행을 잘라냈을 때 과거 신호가 바뀌는 전략을 탐지합니다. 이 검사는 미래 `shift(-1)` 같은 명백한 누수를 잡는 방어선이며, 모든 형태의 데이터 누수를 자동으로 증명하는 도구는 아닙니다.
@@ -156,4 +184,4 @@ GitHub Actions도 같은 검증 순서를 실행합니다.
 - AI Agent 자동 실행
 - paper/live execution adapter
 
-다음 연구 단계는 parameter sweep, 더 강한 OOS selection 규칙, funding/OI/liquidation 데이터셋, 현실적인 event-driven validation을 추가하는 것입니다.
+다음 연구 단계는 더 강한 OOS selection 규칙, funding/OI/liquidation 데이터셋, order-book 기반 event-driven validation을 추가하는 것입니다.

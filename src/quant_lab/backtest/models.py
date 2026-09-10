@@ -19,6 +19,12 @@ class BacktestConfig:
     fee_bps: float = 5.0
     slippage_bps: float = 2.0
     periods_per_year: int = 24 * 365
+    risk_per_trade: float | None = None
+    stop_loss_pct: float | None = None
+    max_exposure: float = 1.0
+    max_leverage: float = 1.0
+    max_volume_participation: float | None = None
+    volatility_slippage_multiplier: float = 0.0
 
     def __post_init__(self) -> None:
         if self.initial_cash <= 0:
@@ -27,6 +33,21 @@ class BacktestConfig:
             raise BacktestInputError("fee_bps and slippage_bps must be non-negative")
         if self.periods_per_year <= 0:
             raise BacktestInputError("periods_per_year must be positive")
+        if (self.risk_per_trade is None) != (self.stop_loss_pct is None):
+            raise BacktestInputError("risk_per_trade and stop_loss_pct must be configured together")
+        if self.risk_per_trade is not None and not 0.0 < self.risk_per_trade <= 1.0:
+            raise BacktestInputError("risk_per_trade must be in (0, 1]")
+        if self.stop_loss_pct is not None and not 0.0 < self.stop_loss_pct < 1.0:
+            raise BacktestInputError("stop_loss_pct must be in (0, 1)")
+        if self.max_exposure <= 0.0 or self.max_leverage <= 0.0:
+            raise BacktestInputError("max_exposure and max_leverage must be positive")
+        if (
+            self.max_volume_participation is not None
+            and not 0.0 < self.max_volume_participation <= 1.0
+        ):
+            raise BacktestInputError("max_volume_participation must be in (0, 1]")
+        if self.volatility_slippage_multiplier < 0.0:
+            raise BacktestInputError("volatility_slippage_multiplier must be non-negative")
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +66,7 @@ class TradeRecord:
     net_pnl: float
     return_pct: float
     holding_period: pd.Timedelta
+    entry_fills: int
 
 
 @dataclass(frozen=True, slots=True)

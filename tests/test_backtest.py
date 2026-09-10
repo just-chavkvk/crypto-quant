@@ -162,3 +162,102 @@ def test_annualized_metrics_infer_four_hour_cadence():
 
     expected_cagr = (1.0001 ** (365 * 6)) - 1.0
     assert result.metrics.cagr == pytest.approx(expected_cagr)
+
+
+def test_risk_sizing_limits_loss_to_configured_budget_when_stop_is_hit():
+    # Given: a 1% risk budget and a stop 5% below a 100 USDT entry.
+    index = pd.date_range("2025-01-01", periods=3, freq="h", tz="UTC")
+    data = pd.DataFrame(
+        {
+            "open": [100.0, 100.0, 100.0],
+            "high": [100.0, 101.0, 100.0],
+            "low": [100.0, 94.0, 100.0],
+            "close": [100.0, 96.0, 100.0],
+            "volume": [1_000.0, 1_000.0, 1_000.0],
+        },
+        index=index,
+    )
+
+    # When: the long entry immediately reaches its stop.
+    result = run_backtest(
+        data,
+        FixedSignalStrategy((1.0, 0.0, 0.0)),
+        BacktestConfig(
+            initial_cash=10_000.0,
+            fee_bps=0.0,
+            slippage_bps=0.0,
+            risk_per_trade=0.01,
+            stop_loss_pct=0.05,
+        ),
+        symbol="BTC/USDT",
+    )
+
+    # Then: the position is 20 BTC and the stop loss is exactly 100 USDT.
+    trade = result.trades[0]
+    assert trade.position_size == pytest.approx(20.0)
+    assert trade.exit_price == pytest.approx(95.0)
+    assert trade.net_pnl == pytest.approx(-100.0)
+    assert result.equity.iloc[-1] == pytest.approx(9_900.0)
+
+
+def test_volume_participation_spreads_large_entry_across_multiple_candles():
+    # Given: each candle only permits 0.5 BTC of the desired 100 BTC position to fill.
+    index = pd.date_range("2025-01-01", periods=4, freq="h", tz="UTC")
+    data = pd.DataFrame(
+        {
+            "open": [100.0] * 4,
+            "high": [100.0] * 4,
+            "low": [100.0] * 4,
+            "close": [100.0] * 4,
+            "volume": [5.0] * 4,
+        },
+        index=index,
+    )
+
+    # When: the target stays long while participation is capped at 10% of candle volume.
+    result = run_backtest(
+        data,
+        FixedSignalStrategy((1.0, 1.0, 1.0, 1.0)),
+        BacktestConfig(
+            initial_cash=10_000.0,
+            fee_bps=0.0,
+            slippage_bps=0.0,
+            max_volume_participation=0.10,
+        ),
+        symbol="BTC/USDT",
+    )
+
+    # Then: the entry is accumulated over three separate fills.
+    trade = result.trades[0]
+    assert trade.position_size == pytest.approx(1.5)
+    assert trade.entry_fills == 3
+
+
+def test_volatile_candle_adds_adverse_slippage_to_fill_price():
+    # Given: a candle with a 20% high-low range and a 50% volatility multiplier.
+    index = pd.date_range("2025-01-01", periods=3, freq="h", tz="UTC")
+    data = pd.DataFrame(
+        {
+            "open": [100.0, 100.0, 100.0],
+            "high": [100.0, 110.0, 100.0],
+            "low": [100.0, 90.0, 100.0],
+            "close": [100.0, 100.0, 100.0],
+            "volume": [1_000.0] * 3,
+        },
+        index=index,
+    )
+
+    # When: a long order executes during the volatile candle.
+    result = run_backtest(
+        data,
+        FixedSignalStrategy((1.0, 0.0, 0.0)),
+        BacktestConfig(
+            fee_bps=0.0,
+            slippage_bps=0.0,
+            volatility_slippage_multiplier=0.5,
+        ),
+        symbol="BTC/USDT",
+    )
+
+    # Then: the entry pays 10% adverse slippage.
+    assert result.trades[0].entry_fill_price == pytest.approx(110.0)
