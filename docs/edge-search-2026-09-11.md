@@ -491,6 +491,29 @@ pre-stress score가 가장 높은 pure funding 4시간 후보를 2026 stress에 
 - `artifacts/edge_search/funding_relative_value_champion_yearly.csv`
 - 실행 모듈: `src/quant_lab/research/funding_relative_value.py`
 
+## Global-position cap momentum 정식화
+
+초기 pre-screen artifact를 만든 당시 실행 세션을 복원해 정확한 규칙을 확인했습니다. 이 가족은 새로 threshold를 고르는 탐색이 아니라, 이미 관찰된 parameter plateau를 하나의 고정 규칙으로 정식화하는 단계입니다.
+
+- base momentum: `close_t > close_{t-336h}` 이고 `close_t > EMA_400h`
+- crowding source: Binance `count_long_short_ratio` (global account long/short ratio)
+- crowding history: 직전 2160시간
+- cap: 현재 값을 제외한 직전 2160시간의 90% quantile
+- filter: 현재 global ratio가 cap 이하일 때만 base momentum long 허용
+- timeframe: BTC/ETH × 1h/4h 모두 같은 시간 단위 규칙으로 환산
+- execution: 닫힌 bar에서 signal 계산, 기존 backtester가 다음 bar open에서 target 실행
+- 비용/리스크: fee 5 bps, slippage 2 bps, 거래당 risk 1%, stop 5%, volatility slippage multiplier 0.02
+
+q90은 사후 최고점 선택이 아니라 기존에 q75/q90/q95 세 값이 모두 2022~2025 pre-screen과 2026 stress를 통과한 plateau의 중앙값으로 고정합니다. 당시 이미 2026 결과를 확인했으므로 2026은 독립 holdout으로 재사용하지 않습니다. 정식 모듈은 과거 artifact를 **재현성 검증**하고, 최종 판정은 2026-09-11 이후 새 데이터만 사용하는 future shadow로 넘깁니다.
+
+future shadow 규칙:
+
+- shadow start: 2026-09-11 00:00 UTC 이후 새로 생기는 완전한 bar
+- q90 / 2160h / 336h / EMA 400h를 shadow 동안 변경하지 않음
+- BTC/ETH × 1h/4h 네 데이터셋 모두 누적 수익률 > 0, Sharpe > 0, 거래 수 >= 10이 될 때까지 `PROMOTED` 판정을 금지
+- 하나라도 누적 수익률 또는 Sharpe가 음수인 상태에서 충분한 표본이 쌓이면 `REJECTED`로 닫음
+- shadow 전에는 paper/live trading에 연결하지 않음
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>

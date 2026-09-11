@@ -65,11 +65,12 @@
 | 2026-09-11 | BTC/ETH premium + OI relative crowding fade | 1h/4h, 2개 사전 등록 | `REJECTED` | 0/2 pre-pass. 4h discovery -10.61%, validation -45.33%, 2026 -11.40%. 비용 0도 validation -15.82% | `docs/edge-search-2026-09-11.md`, `relative_value_wave_*csv` |
 | 2026-09-11 | BTC/ETH taker relative chase fade | 1h/4h, 2개 사전 등록 | `REJECTED` | 0/2 pre-pass. 4h discovery -17.41%, validation -45.34%, 2026 -18.48%. 비용 0도 validation -5.99% | `docs/edge-search-2026-09-11.md`, `relative_value_wave_*csv` |
 | 2026-09-11 | BTC/ETH funding settlement differential fade | pure/premium-confirmed × 1h/4h, 4개 사전 등록 | `REJECTED` | 0/4 pre-pass. best pure 4h도 discovery -16.19%, validation -27.51%, 2026 -7.86%. 비용 0 validation -10.66%, 연도별 전부 음수 | `docs/edge-search-2026-09-11.md`, `funding_relative_value_*csv` |
+| 2026-09-11 | Global-position cap momentum q90 / 2160h | BTC/ETH × 1h/4h 정식화 | `NEXT` | pre-screen의 q75/q90/q95 plateau가 2026 stress까지 모두 양수였으나 2026은 이미 열어본 데이터. q90 중앙값을 고정해 과거 artifact 재현 후 2026-09-11 이후 future shadow로만 최종 판정 | `docs/edge-search-2026-09-11.md`, `microstructure_momentum_filters_pre_stress.csv` |
 | 2026-09-11 | Liquidation burst | 데이터 조사 | `BLOCKED-DATA` | Binance USD-M 역사 liquidationSnapshot이 2024-03-31 이후 끊겼고 forceOrder도 완전한 이벤트 테이프가 아님 | 같은 문서 |
 
 ## 다음 연구 순서
 
-1. 기존 pre-screen에서 반복적으로 살아남은 position-filtered momentum을 정식 검증 후보로 좁힙니다.
+1. global-position cap momentum q90 / 2160h 규칙을 코드로 재현하고 2026-09-11 이후 future shadow를 엽니다.
 2. global/top-position ETH outright, BTC/ETH relative-value, funding differential 가족의 threshold/lookback/holding 조정은 반복하지 않습니다.
 3. Liquidation은 완전한 historical event source를 확보하기 전까지 정식 백테스트를 시작하지 않습니다.
 4. 새로운 정식 후보는 기존 `REJECTED`와 다른 데이터 계약 또는 경제 메커니즘으로 사전 등록합니다.
