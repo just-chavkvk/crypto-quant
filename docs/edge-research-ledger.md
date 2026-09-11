@@ -56,16 +56,17 @@
 | 2026-09-11 | Taker floor filter | 10개 | `PRE-SCREEN` | pre-pass 1/10 | 같은 CSV |
 | 2026-09-11 | Taker + positioning combo | 18개 | `REJECTED` | pre-pass 0/18 | 같은 CSV |
 | 2026-09-11 | Top-vs-global positioning filter | 6개 | `PRE-SCREEN` | pre-pass 2/6. 절대값보다 변화율/불일치로 재정의할 가치 있음 | 같은 CSV |
-| 2026-09-11 | Taker-flow shock × price divergence / absorption | 연구 설계만 완료 | `NEXT` | 단순 taker 추세/반전은 이미 실패. 5m/15m 닫힌 봉에서 flow 급변 대비 가격 반응 잔차를 새 가설로 검증 | `docs/edge-search-2026-09-11.md` |
+| 2026-09-11 | Taker-flow shock × price divergence / absorption | 초기 연구 설계 | `ARCHIVED` | 아래 정식 사전 등록·실행 결과로 대체 | `docs/edge-search-2026-09-11.md` |
 | 2026-09-11 | Taker-flow shock × price divergence / absorption → flow 반대 방향 | 사전 등록 6개 후보, BTC/ETH × 5m/15m | `REJECTED` | 6/6 pre-stress 실패. 가장 덜 나쁜 4h strict 후보도 discovery 최저 -4.19%, validation 최저 -2.10% / Sharpe -1.27. 비용 0에서도 ETH 양 timeframe 음수 | `docs/edge-search-2026-09-11.md`, `taker_divergence_*csv` |
-| 2026-09-11 | Long/Short ratio velocity / acceleration | 연구 설계만 완료 | `NEXT` | 절대 crowd 수준 대신 `Δlog(ratio)`, velocity, top-account vs top-position disagreement를 OI/가격과 결합 | 같은 문서 |
+| 2026-09-11 | 같은 자산 Long/Short velocity / acceleration + OI/price state | 사전 등록 144개, BTC/ETH 1h | `REJECTED` | pre-pass 0/144. 양수 조합은 표본 부족·비용 민감성·연도별 반전. OI value 144개와 account-position disagreement 72행도 회복 실패 | `docs/edge-search-2026-09-11.md`, `ls_velocity_*csv` |
+| 2026-09-11 | BTC positioning/OI shock → ETH cross-asset lead-lag | 연구 후보 | `NEXT` | 같은 자산 가족과 다른 전달 메커니즘. BTC 4h global positioning velocity + OI 감소가 ETH 다음 봉에 선행하는지 사전 등록 후 검증 | `docs/edge-search-2026-09-11.md` |
 | 2026-09-11 | Liquidation burst | 데이터 조사 | `BLOCKED-DATA` | Binance USD-M 역사 liquidationSnapshot이 2024-03-31 이후 끊겼고 forceOrder도 완전한 이벤트 테이프가 아님 | 같은 문서 |
 
 ## 다음 연구 순서
 
-1. `Taker-flow shock × price divergence/absorption`를 5m/15m event study로 먼저 검증합니다.
-2. 살아남는 방향만 비용 포함 전략으로 변환합니다.
-3. `Long/Short velocity/acceleration + OI/price state`를 별도 가족으로 검증합니다.
+1. `BTC positioning/OI shock → ETH cross-asset lead-lag`를 독립 메커니즘으로 사전 등록합니다.
+2. BTC의 닫힌 1h metrics를 사용하고 ETH는 다음 봉부터만 거래해 시점 누수를 막습니다.
+3. 같은 자산 Long/Short 가족의 threshold/lookback/holding 조정은 반복하지 않습니다.
 4. Liquidation은 완전한 historical event source를 확보하기 전까지 정식 백테스트를 시작하지 않습니다.
 5. 역사 데이터에서 살아남은 후보 하나만 사전 등록한 미래 shadow 구간으로 보냅니다.
 

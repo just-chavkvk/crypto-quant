@@ -4,13 +4,9 @@ Funding/OI의 단순 방향성 가설 다음에 무엇을 연구할지 조사하
 
 ## 결론
 
-다음 정식 연구 우선순위는 아래와 같습니다.
+Taker-flow absorption과 같은 자산의 Long/Short 변화속도·가속도 + OI/가격 상태는 정식 검증에서 모두 탈락했습니다. Liquidation burst는 신뢰할 수 있는 역사 데이터가 없어 계속 보류합니다.
 
-1. **Taker-flow shock × price divergence / absorption**
-2. **Long/Short positioning의 절대값이 아닌 변화속도·가속도·series 간 불일치**
-3. **Liquidation burst는 신뢰할 수 있는 역사 데이터 확보 전까지 보류**
-
-단순 taker continuation/rebound, 절대적인 positioning crowd fade, premium fade/continuation은 이미 로컬 실험에서 엄격한 사전 기준을 통과하지 못했습니다. 같은 아이디어를 임계값만 바꿔 다시 돌리지 않습니다.
+다음 정식 연구 후보는 **BTC positioning/OI shock → ETH 가격 반응의 cross-asset lead-lag**입니다. 이번에 탈락한 같은 자산 신호의 임계값을 다시 조정하지 않고, BTC에서 먼저 관측된 포지셔닝 변화가 ETH의 다음 봉 수익을 예측하는지라는 다른 전달 메커니즘으로 사전 등록해야 합니다.
 
 ## 이미 수행된 미시구조 실험
 
@@ -164,6 +160,75 @@ Binance USD-M `liquidationSnapshot` 공개 아카이브는 2024-03-31 이후 업
 - `artifacts/edge_search/taker_divergence_details_pre_stress.csv`
 - `artifacts/edge_search/taker_divergence_champion_stress_2026.csv`
 - `artifacts/edge_search/taker_divergence_champion_validation_zero_cost.csv`
+
+## Long/Short velocity / acceleration 백테스트 사전 등록
+
+다음 연구는 절대 Long/Short ratio 수준을 신호로 쓰지 않고, ratio의 로그 변화속도와 가속도에 OI/가격 상태를 결합한다. 결과를 보기 전에 아래 범위와 판정 규칙을 고정한다.
+
+- 데이터: Binance USD-M `metrics` 5분 자료와 같은 거래소의 1시간 선물 kline
+- 대상: BTCUSDT / ETHUSDT
+- 1시간 metrics 관측값: 각 시간의 닫힌 시간봉에 해당하는 `:55` 5분 snapshot만 사용. `:55`가 없거나 필드가 비어 있으면 그 시간을 채우지 않고 제외
+- ratio series: global account ratio, top-trader account ratio, top-trader position ratio 및 세 series의 median velocity composite
+- feature: `x_t = log(ratio_t)`, `velocity_L = x_t - x_{t-L}`, `acceleration_L = velocity_L(t) - velocity_L(t-L)`
+- 표준화: 현재 관측치를 제외한 직전 720개 시간 관측치의 mean/std. 720개가 완전하지 않으면 해당 z-score를 사용하지 않음
+- OI 상태: `sum_open_interest` 계약 수의 `L`시간 로그 변화. OI value는 가격과 중복될 수 있어 주 신호에서 사용하지 않음
+- 가격 상태: 1시간 close의 `L`시간 로그 변화
+- lookback: `L ∈ {4h, 12h, 24h}`
+- velocity threshold: `|velocity_z| >= 2.0`
+- acceleration threshold: `|acceleration_z| >= 1.0`
+- holding: `H ∈ {4h, 12h, 24h}`
+- 후보 가족: velocity/acceleration 동방향 + price/OI 동방향 continuation, velocity/acceleration 동방향 + OI 반대방향 continuation, acceleration 반전 + price/OI 동방향 reversal, acceleration 반전 + OI 반대방향 reversal
+- source × family × lookback × holding으로 4 × 4 × 3 × 3 = 144개 조합을 사전 등록
+- 신호 계산은 현재 시간봉이 닫힌 뒤, 진입은 다음 1시간 봉 open, 청산은 진입 후 H시간 뒤 open
+- 보유 중 겹치는 이벤트는 무시
+- 비용: 왕복 fee 5 bps + base slippage 2 bps, 즉 거래당 최소 14 bps. 이 단계는 고정 보유 event/backtest이므로 stop/volume cap은 적용하지 않으며, 통과 후보만 기존 엔진의 risk/stop 계약으로 재검증
+- 탐색: 2023년, 검증: 2024~2025년, 2026년은 champion을 고른 뒤 stress 확인 전용
+- 사전 통과: BTC/ETH 양쪽에서 discovery 수익률 > 0, validation 수익률 > 0, validation Sharpe > 0, validation 거래 수 ≥ 10
+- 2026년 수익률은 후보 선택이나 방향 전환에 사용하지 않음
+
+세 series의 top-account velocity와 top-position velocity가 반대인 disagreement 이벤트는 별도 진단으로 기록하되, 본 144개 champion 선정에 섞지 않는다. 결측 metrics를 forward-fill하거나 gap을 lookback bar로 건너뛰지 않는다.
+
+## Long/Short velocity / acceleration 실제 결과
+
+사전 등록한 144개 조합을 BTCUSDT와 ETHUSDT에 적용했습니다. 결과 CSV는 144행이 모두 고유하며 4개 source × 4개 family × 3개 lookback × 3개 holding의 전체 조합을 포함합니다. 사전 통과 후보는 **0/144**였습니다.
+
+### 데이터 계약과 품질
+
+- 공식 Binance USD-M metrics의 `count_long_short_ratio`, `count_toptrader_long_short_ratio`, `sum_toptrader_long_short_ratio`와 계약 수 OI를 사용했습니다.
+- top-account와 top-position series는 2022년에 장기간 비어 있어 2023년을 discovery로 고정했습니다.
+- 1시간마다 `:55` snapshot만 사용했고, 누락된 시간이나 필드는 채우지 않았습니다.
+- 검증 artifact는 `ls_velocity_acceleration_summary_pre_stress.csv` 144행, `ls_velocity_acceleration_champions_stress_2026.csv` 8행, `ls_velocity_disagreement_diagnostic.csv` 72행입니다.
+
+### 가족별 결과
+
+| 가족 | 사전 최고 조합 | Discovery 최저 수익 | Validation 최저 수익 | Validation 최소 거래 | 판정 |
+| --- | --- | ---: | ---: | ---: | --- |
+| OI build continuation | top-account, 4h velocity, 4h hold | -4.49% | +2.34% | 6 | discovery 손실·표본 부족 |
+| OI cover continuation | median composite, 4h velocity, 4h hold | +0.68% | +4.38% | 8 | 최소 거래 수 미달 |
+| OI build reversal | 유효 champion 없음 | — | — | 0 | 이벤트 부족 |
+| OI cover reversal | 유효 champion 없음 | — | — | 0 | 이벤트 부족 |
+
+수익 부호 기준으로 discovery와 validation을 모두 통과한 조합은 `median composite / cover continuation / 4h lookback / 4h hold` 하나뿐이었습니다. 그러나 discovery 거래가 BTC 5건, ETH 1건이고 validation도 BTC 8건, ETH 10건이어서 사전 등록한 최소 표본 조건을 넘지 못했습니다. 2026 stress에서도 BTC -0.45%, ETH +0.54%로 방향이 갈렸고 각각 3건뿐이었습니다.
+
+최소 validation 거래 수 10건을 만족한 21개 조합 중 가장 가까운 후보는 `global ratio / cover continuation / 4h lookback / 12h hold`였습니다. Validation은 BTC +19.36%, ETH +3.91%였지만 discovery의 ETH가 -0.49%였습니다. 연도별로도 ETH는 2024 +8.70%에서 2025 -4.41%, 2026 -0.51%로 뒤집혔고 BTC도 2026 -2.11%였습니다. 여러 해에 유지되는 Edge로 볼 수 없습니다.
+
+### 비용과 OI 정의 민감도
+
+`global ratio / cover continuation / 4h lookback / 4h hold`는 현재 비용에서 discovery BTC +1.15%, ETH -0.02%, validation BTC +14.22%, ETH +1.79%였습니다. fee와 slippage를 0으로 두면 discovery BTC +4.61%, ETH +0.82%, validation BTC +16.79%, ETH +3.66%였습니다. gross 방향성은 보이지만 ETH discovery의 거래당 평균 gross 수익 약 0.137%가 가정한 최소 왕복 비용 0.14%보다 작아, 현재 실행 가정에서는 거래 가능한 Edge가 아닙니다.
+
+계약 수 OI를 명목가치 OI로 바꾼 별도 민감도 144개도 사전 통과 0개였습니다. 명목가치 OI의 가장 나은 충분표본 build 후보는 discovery BTC -7.99%, ETH -5.37%였고, cover 후보도 discovery BTC -8.40%, ETH -4.59%였습니다. 가격이 포함된 OI value로 바꿔도 결론은 회복되지 않았습니다.
+
+### Top-account와 top-position 불일치
+
+불일치 진단 72행도 승격할 후보가 없었습니다. `position-follow / 12h lookback / 4h hold`는 validation BTC +1.06%, ETH +0.51%였지만 discovery BTC -7.25%였고 validation 거래도 각각 3건과 4건뿐이었습니다. `account-follow / 12h lookback / 24h hold`도 validation은 양수였으나 discovery ETH -1.83%, validation 거래 3건씩에 그쳤습니다.
+
+### 판정
+
+**`같은 자산의 Long/Short velocity/acceleration + OI/price state` 가족은 REJECTED입니다.**
+
+현재 데이터·비용·실행 가정에서 144개 중 사전 통과가 없었고, 양수로 보이는 조합은 표본 부족·비용 민감성·연도별 방향 전환 중 하나 이상을 피하지 못했습니다. 같은 source와 같은 자산에서 threshold/lookback/holding만 바꿔 재시험하지 않습니다. 재검토하려면 cross-asset 전달, 더 낮은 실제 체결비용의 입증, 또는 새로운 미래 데이터처럼 메커니즘이나 실행 계약이 실질적으로 달라져야 합니다.
+
+다음 후보는 BTC의 global positioning velocity와 OI 감소 shock가 ETH의 다음 1h/4h 수익에 선행하는지 보는 cross-asset lead-lag입니다. BTC 신호가 닫힌 뒤 ETH 다음 봉에서만 진입하도록 시점을 고정하고, 이번 결과에서 상대적으로 나았던 4h velocity를 새 결과를 보기 전에 하나의 기준값으로 사전 등록하는 것이 적절합니다.
 
 ## 참고 자료
 
