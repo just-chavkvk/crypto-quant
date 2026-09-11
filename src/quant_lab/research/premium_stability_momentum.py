@@ -4,7 +4,7 @@ import argparse
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-import pandas as pd
+import pandas as pd  # noqa: PANDAS_OK
 
 from quant_lab.backtest.engine import run_backtest
 from quant_lab.backtest.models import BacktestConfig, PerformanceMetrics
