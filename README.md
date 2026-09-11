@@ -166,6 +166,10 @@ uv run quant sweep data/cache/binance/BTC_USDT/1h.parquet \
 
 하나의 숫자 조합만 잘 맞는 전략을 고르는 대신, 서로 다른 원리의 Edge를 각각 여러 설정으로 시험합니다.
 
+연구 이력의 기준 문서는 [`docs/edge-research-ledger.md`](docs/edge-research-ledger.md)입니다. 새 Edge를 조사하거나 백테스트한 뒤에는 반드시 원장에 가설, 데이터, 시험 수, 판정, 재검토 조건을 남깁니다. 이미 `REJECTED`된 가설은 데이터·메커니즘·실행 가정 중 하나가 실질적으로 달라지지 않는 한 그대로 다시 시험하지 않습니다.
+
+연구 결과와 코드 구현은 가능한 한 별도 커밋으로 남깁니다. 연구 한 묶음이 끝나면 `docs: record ... edge research` 형태의 문서 커밋을 만들고, 실제 전략/수집기/백테스터 변경은 별도 기능 커밋으로 연결합니다. 생성된 대용량 `artifacts/`와 임시 `.omo/` 저널은 Git에 넣지 않고, 재현에 필요한 파일명과 결과 요약만 연구 원장에 기록합니다.
+
 - Momentum: 일정 기간 강했던 방향이 이어지는지
 - Donchian breakout: 이전 고점을 돌파한 뒤 추세가 이어지는지
 - Volume breakout: 거래량 증가를 동반한 돌파가 더 강한지
