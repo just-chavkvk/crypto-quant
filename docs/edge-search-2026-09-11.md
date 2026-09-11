@@ -904,6 +904,51 @@ premium, taker, funding 같은 파생 지표가 아니라 **가격 관계 자체
 - `artifacts/edge_search/correlation_gated_momentum_shadow.csv`
 - 실행 모듈: `src/quant_lab/research/correlation_gated_momentum.py`
 
+## Liquidity-impact shock fade 사전 등록
+
+기존 volume breakout은 거래량이 많을 때 가격 방향을 추종했습니다. 이번 가설은 **가격 변화가 거래대금 대비 비정상적으로 큰 경우**를 얇은 유동성에서 발생한 일시적 overshoot의 proxy로 봅니다. 절대 거래량이나 wick 모양을 쓰지 않고, 동일 자산의 rolling history 대비 price impact 자체를 정규화합니다.
+
+- universe: BTCUSDT, ETHUSDT
+- timeframe: 1h, 4h
+- 1-bar return: 현재 닫힌 bar의 log return
+- quote-notional proxy: `volume × close`
+- impact: `abs(log_return) / (volume × close)`
+- threshold: 현재 impact를 제외한 직전 720시간 impact의 95% quantile 이상
+- direction: positive-return impact shock → short, negative-return impact shock → long
+- entry: signal bar 다음 bar open
+- hold: 4시간 고정
+- 보유 중 새 shock은 무시
+- 비용/리스크: fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-11, pre-stress 판정 뒤 진단
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 impact quantile/history, hold 또는 방향을 바꾸지 않음
+
+실패하면 같은 OHLCV 계약에서 impact threshold/history/방향만 바꿔 이 family를 반복하지 않습니다.
+
+### 실제 결과
+
+고정 규칙은 비용 포함 기준으로 discovery, validation, 2026 stress에서 BTC/ETH × 1h/4h **모든 데이터셋이 음수**였습니다.
+
+| 데이터셋 | Discovery | Validation | 2026 Stress | Validation 거래 수 |
+| --- | ---: | ---: | ---: | ---: |
+| BTC 1h | -11.97% | -13.59% | -7.19% | 703 |
+| ETH 1h | -11.51% | -15.84% | -4.62% | 675 |
+| BTC 4h | -6.20% | -13.17% | -4.85% | 237 |
+| ETH 4h | -6.35% | -13.38% | -5.41% | 240 |
+
+비용 0에서는 1h discovery/validation이 양수로 회복됐지만 BTC4h validation -4.52%, ETH4h validation -3.34%, BTC4h 2026 -1.61%, ETH4h 2026 -1.84%가 남았습니다. 따라서 거래비용만의 문제가 아니라 거래대금 대비 큰 가격충격을 단순 fade하는 방향 자체가 여러 timeframe과 regime에서 안정적이지 않습니다.
+
+**`Liquidity-impact shock fade`는 REJECTED입니다.** impact quantile/history, hold 또는 방향을 바꿔 같은 family를 다시 탐색하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/liquidity_impact_fade_pre_stress.csv`
+- `artifacts/edge_search/liquidity_impact_fade_stress_2026.csv`
+- `artifacts/edge_search/liquidity_impact_fade_zero_cost.csv`
+- 실행 모듈: `src/quant_lab/research/liquidity_impact_fade.py`
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>
