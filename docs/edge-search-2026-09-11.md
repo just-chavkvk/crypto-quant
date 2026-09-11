@@ -6,7 +6,7 @@ Funding/OI의 단순 방향성 가설 다음에 무엇을 연구할지 조사하
 
 Taker-flow absorption, 같은 자산의 Long/Short 변화속도·가속도 + OI/가격 상태, BTC global positioning/OI shock → ETH lead-lag, BTC top-trader position velocity/OI shock → ETH lead-lag는 정식 검증에서 모두 탈락했습니다. Liquidation burst는 신뢰할 수 있는 역사 데이터가 없어 계속 보류합니다.
 
-top-trader position source는 비용을 제거해도 discovery와 validation이 모두 음수여서 global-ratio 실험보다 더 약했습니다. 같은 source에서 threshold/lookback/holding만 바꾼 재시험은 하지 않습니다.
+top-trader position source는 비용을 제거해도 discovery와 validation이 모두 음수여서 global-ratio 실험보다 더 약했습니다. BTC/ETH 상대가치 wave도 8개 trial 전부 pre-pass에 실패했습니다. 같은 source에서 threshold/lookback/holding만 바꾼 재시험은 하지 않습니다.
 
 ## 이미 수행된 미시구조 실험
 
@@ -405,6 +405,35 @@ global account ratio에서 보였던 일부 validation 양수 반응도 재현�
 - trial 수: 2
 
 총 8개 trial만 실행합니다. 결과를 본 뒤 threshold/lookback/holding 또는 방향을 바꿔 같은 wave 안에서 재탐색하지 않습니다. 모두 실패하면 다음 wave는 source/target 또는 실행 메커니즘이 다른 가족으로 넘어갑니다.
+
+## BTC/ETH 상대가치 Edge wave 실제 결과
+
+사전 등록한 8개 trial은 모두 pre-pass에 실패했습니다.
+
+| 가족 | Variant | Hold | Discovery | Validation | Validation Sharpe | Validation 거래 수 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| positioning catch-up | global | 1h | -6.57% | -2.15% | -59.98 | 17 |
+| positioning catch-up | global | 4h | -4.72% | -3.71% | -31.75 | 16 |
+| positioning catch-up | top-position | 1h | -9.49% | -15.73% | -67.07 | 109 |
+| positioning catch-up | top-position | 4h | -7.46% | -11.72% | -9.70 | 90 |
+| premium + OI crowding fade | premium/OI | 1h | -13.52% | -43.32% | -37.70 | 352 |
+| premium + OI crowding fade | premium/OI | 4h | -10.61% | -45.33% | -16.01 | 308 |
+| taker chase fade | taker | 1h | -21.37% | -45.79% | -72.02 | 423 |
+| taker chase fade | taker | 4h | -17.41% | -45.34% | -19.94 | 387 |
+
+가족별로 pre-stress score가 덜 나쁜 4시간 후보만 2026 stress history에 열었습니다. positioning catch-up은 -2.65%, premium/OI crowding fade는 -11.40%, taker chase fade는 -18.48%였습니다.
+
+비용 0 진단에서도 구조적 안정성은 없었습니다. positioning top-position 4h는 discovery -0.61%, validation +0.15%였고, premium/OI 4h는 discovery +3.26%에서 validation -15.82%로 반전했습니다. taker 4h도 discovery +2.61%에서 validation -5.99%로 반전했습니다. 따라서 세 가족 모두 거래비용만 낮추면 살아나는 형태가 아닙니다.
+
+**`BTC/ETH relative-value wave`는 REJECTED입니다.** 같은 세 가족에서 threshold/lookback/holding 또는 방향만 바꾼 재시험은 하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/relative_value_wave_pre_stress.csv`
+- `artifacts/edge_search/relative_value_wave_champions_stress_2026.csv`
+- `artifacts/edge_search/relative_value_wave_champions_zero_cost.csv`
+- `artifacts/edge_search/relative_value_wave_champions_yearly.csv`
+- 실행 모듈: `src/quant_lab/research/relative_value_wave.py`
 
 ## 참고 자료
 
