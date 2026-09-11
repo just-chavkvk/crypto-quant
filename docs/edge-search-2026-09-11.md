@@ -557,6 +557,26 @@ crowding/flow/funding 계열과 다른 cross-sectional momentum 메커니즘을 
 
 이 규칙이 역사 stress까지 살아도 2026은 pristine holdout이 아니므로 바로 paper 후보로 승격하지 않고, 2026-09-11 이후 future shadow가 필요합니다.
 
+### 실제 결과
+
+고정 규칙 1개를 1h/4h 양쪽에서 실행했습니다. 두 timeframe은 거의 같은 결과를 냈지만 discovery에서 손실이 나 사전 기준을 통과하지 못했습니다.
+
+| Timeframe | Discovery 2022~2023 | Validation 2024~2025 | Validation Sharpe | 2026 Stress | 2026 Sharpe | Validation target 변경 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1h | -4.46% | +14.55% | +0.37 | +34.74% | +1.40 | 156 |
+| 4h | -4.89% | +14.54% | +0.37 | +34.73% | +1.41 | 156 |
+
+2024년 이후에는 매우 강했지만 2022~2023 discovery의 최대 drawdown이 약 -40%이고 누적 수익도 음수였습니다. 최근 regime에 특화된 전략 가능성은 있으나 사전 등록한 multi-regime 기준에서는 탈락입니다.
+
+**`BTC/ETH relative-strength rotation`은 REJECTED입니다.** 이번 결과를 보고 lookback, EMA, rebalance 시간 또는 cash gate를 재조정하지 않습니다. 다시 열려면 독립적인 regime-switching 가설처럼 메커니즘을 명시적으로 바꿔 별도 연구로 등록해야 합니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/relative_strength_rotation_pre_stress.csv`
+- `artifacts/edge_search/relative_strength_rotation_stress_2026.csv`
+- `artifacts/edge_search/relative_strength_rotation_shadow.csv`
+- 실행 모듈: `src/quant_lab/research/relative_strength_rotation.py`
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>
