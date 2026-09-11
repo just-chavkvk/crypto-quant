@@ -619,6 +619,29 @@ crowding/flow/funding 계열과 다른 cross-sectional momentum 메커니즘을 
 - `artifacts/edge_search/breadth_momentum_shadow.csv`
 - 실행 모듈: `src/quant_lab/research/breadth_momentum.py`
 
+## BTC/ETH high-correlation relative-shock fade 사전 등록
+
+premium, taker, funding 같은 파생 지표가 아니라 **가격 관계 자체의 일시적 이탈**을 검증합니다. BTC와 ETH가 최근 일주일 동안 높은 상관을 유지했는데 24시간 상대수익만 역사적으로 극단까지 벌어지면, 일시적 dislocation이 평균회귀한다는 가설입니다.
+
+- 데이터: BTCUSDT / ETHUSDT 1h perpetual futures
+- BTC/ETH hourly return correlation: 현재 bar를 제외한 직전 168시간
+- correlation gate: `corr >= 0.70`
+- relative shock: `log(ETH_close_t / ETH_close_{t-24h}) - log(BTC_close_t / BTC_close_{t-24h})`
+- shock z-score: 현재 관측치를 제외한 직전 720시간의 relative-shock mean/std
+- threshold: `|relative_shock_z| >= 2.0`
+- direction: ETH 상대수익이 양의 극단이면 short ETH / long BTC, 음의 극단이면 long ETH / short BTC
+- entry: signal 다음 1시간 bar open
+- hold: 24시간 고정
+- 겹치는 이벤트: 포지션 보유 중 새 이벤트 무시
+- 비용: 두 leg 모두 편도 fee 5 bps + slippage 2 bps
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-10, pre-stress 판정 후에만 확인
+- pre-pass: discovery와 validation 모두 return > 0, Sharpe > 0, trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 correlation/z/hold를 재조정하지 않음
+
+통과하더라도 2026은 stress history이므로 future shadow 전에는 paper 후보로 승격하지 않습니다.
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>
