@@ -1040,6 +1040,51 @@ low-volatility filter는 변동성의 크기를 줄였지만 실패했습니다.
 - `artifacts/edge_search/signed_volume_momentum_shadow.csv`
 - 실행 모듈: `src/quant_lab/research/signed_volume_momentum.py`
 
+## OI-turnover confirmed momentum 사전 등록
+
+raw OI 수준이나 단순 volume spike를 다시 조정하지 않고, **현재 열려 있는 포지션 규모 대비 실제 거래가 얼마나 활발한지**를 turnover로 봅니다. 오래 쌓인 포지션만 남아 있는 추세보다 OI 대비 거래 참여가 충분한 추세가 더 오래 지속된다는 가설입니다.
+
+- universe: BTCUSDT, ETHUSDT
+- timeframe: 1h, 4h
+- base momentum: `close_t > close_{t-336h}`
+- trend gate: `close_t > EMA_400h`
+- recent turnover: 직전 포함 24시간 `sum(volume) / current sum_open_interest`
+- turnover reference: 현재 turnover를 제외한 직전 2160시간 turnover history의 median
+- participation gate: `recent_turnover >= prior_2160h_median_turnover`
+- target: base momentum + trend gate + participation gate가 모두 참이면 long, 아니면 cash
+- execution: 닫힌 signal bar 다음 bar open
+- 비용/리스크: fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-11, pre-stress 판정 뒤 진단
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 turnover window/history/threshold 또는 기존 momentum 파라미터를 조정하지 않음
+
+실패하면 `volume / OI` turnover threshold/window만 바꿔 같은 family를 반복하지 않습니다. 통과하더라도 2026은 stress history이므로 2026-09-11 이후 future shadow에서만 최종 승격을 검토합니다.
+
+### 실제 결과
+
+사전 등록한 고정 규칙은 discovery/validation에서 BTC/ETH × 1h/4h **8개 구간을 모두 통과**했습니다. 그러나 2026 stress에서 BTC 1h와 BTC 4h가 비용 포함 기준으로 음수가 되어 역사 stress 생존에는 실패했습니다.
+
+| 데이터셋 | Discovery | Validation | Validation Sharpe | 2026 Stress | 2026 Sharpe |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| BTC 1h | +2.58% | +1.57% | +0.25 | -0.64% | -0.32 |
+| ETH 1h | +0.16% | +6.00% | +0.71 | +0.59% | +0.23 |
+| BTC 4h | +4.54% | +0.78% | +0.13 | -0.68% | -0.44 |
+| ETH 4h | +1.80% | +5.79% | +0.63 | +0.55% | +0.23 |
+
+비용 0 진단에서는 discovery/validation/2026의 모든 데이터셋이 양수였습니다. 2026 stress는 BTC1h +0.46%, ETH1h +1.74%, BTC4h +0.07%, ETH4h +1.57%였습니다. 즉 OI 대비 turnover가 높은 추세의 gross 방향성은 남아 있지만, 특히 BTC 2026에서 현재 fee/slippage/volatility-slippage를 감당할 여유가 거의 없습니다.
+
+**`OI-turnover confirmed momentum`은 REJECTED입니다.** turnover window/history/threshold 또는 기존 momentum 파라미터를 조정해 같은 family를 다시 탐색하지 않습니다. future shadow에는 올리지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/turnover_momentum_pre_stress.csv`
+- `artifacts/edge_search/turnover_momentum_stress_2026.csv`
+- `artifacts/edge_search/turnover_momentum_zero_cost.csv`
+- `artifacts/edge_search/turnover_momentum_shadow.csv`
+- 실행 모듈: `src/quant_lab/research/turnover_momentum.py`
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>
