@@ -4,9 +4,9 @@ Funding/OI의 단순 방향성 가설 다음에 무엇을 연구할지 조사하
 
 ## 결론
 
-Taker-flow absorption과 같은 자산의 Long/Short 변화속도·가속도 + OI/가격 상태는 정식 검증에서 모두 탈락했습니다. Liquidation burst는 신뢰할 수 있는 역사 데이터가 없어 계속 보류합니다.
+Taker-flow absorption, 같은 자산의 Long/Short 변화속도·가속도 + OI/가격 상태, BTC global positioning/OI shock → ETH lead-lag는 정식 검증에서 모두 탈락했습니다. Liquidation burst는 신뢰할 수 있는 역사 데이터가 없어 계속 보류합니다.
 
-다음 정식 연구 후보는 **BTC positioning/OI shock → ETH 가격 반응의 cross-asset lead-lag**입니다. 이번에 탈락한 같은 자산 신호의 임계값을 다시 조정하지 않고, BTC에서 먼저 관측된 포지셔닝 변화가 ETH의 다음 봉 수익을 예측하는지라는 다른 전달 메커니즘으로 사전 등록해야 합니다.
+다음 정식 연구 후보는 **BTC top-trader position velocity/OI shock → ETH cross-asset lead-lag**입니다. global account ratio와 다른 포지션 규모 series가 ETH에 전달되는지 별도 가설로 사전 등록하고, 이번 global-ratio 결과를 보고 threshold나 holding만 바꾸지는 않습니다.
 
 ## 이미 수행된 미시구조 실험
 
@@ -261,6 +261,35 @@ Binance USD-M `liquidationSnapshot` 공개 아카이브는 2024-03-31 이후 업
 - 비용 0 결과는 판정을 뒤집는 용도가 아니라 실행비용 민감도 진단으로만 사용
 
 이 가설이 실패하면 BTC global positioning/OI → ETH 전달을 같은 threshold나 holding만 바꿔 반복하지 않습니다. 재검토는 source series 변경, 다른 target asset, 또는 독립적인 새 미래 데이터처럼 정보 전달 메커니즘이 달라질 때만 엽니다.
+
+## BTC positioning/OI shock → ETH cross-asset lead-lag 실제 결과
+
+사전 등록한 1시간/4시간 hold 두 trial은 모두 pre-pass에 실패했습니다.
+
+| Hold | Discovery | Sharpe | 거래 수 | Validation | Sharpe | 거래 수 | 판정 |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 1h | -3.55% | -15.35 | 31 | -0.003% | +0.31 | 17 | discovery/validation 수익 실패 |
+| 4h | -0.38% | -0.58 | 25 | +10.75% | +17.90 | 16 | discovery 실패 |
+
+pre-stress score가 높은 4시간 hold를 champion으로 고른 뒤 2026 stress history를 열었습니다. 결과는 **-1.21%, Sharpe -6.95, 6건**이었습니다. 2024 +8.67%, 2025 +1.92%였던 양수 구간이 2026에는 다시 음수로 바뀌었습니다.
+
+### 비용 민감도
+
+4시간 champion에서 fee/slippage를 0으로 두면 discovery는 +3.17%, validation은 +13.25%였습니다. discovery 25건의 평균 gross 거래 수익은 약 +0.129%로, 사전 등록한 왕복 최소 비용 약 0.14%보다 작습니다. 따라서 gross 방향성은 있었지만 현재 실행비용을 포함한 거래 가능한 Edge로는 남지 않았습니다.
+
+### 판정
+
+**`BTC global positioning velocity + OI 감소 shock → ETH follow` 가설은 REJECTED입니다.**
+
+1시간 hold는 discovery와 validation 모두 수익이 없었고, 4시간 hold는 validation만 강했으며 discovery와 2026 stress에서 음수였습니다. 비용 0 진단은 underlying gross 반응을 보여주지만 사전 비용 계약을 넘지 못하므로 판정을 뒤집지 않습니다. 같은 global-ratio source에서 threshold나 holding만 조정한 재시험은 하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/cross_asset_lead_lag_pre_stress.csv`
+- `artifacts/edge_search/cross_asset_lead_lag_champion_stress_2026.csv`
+- `artifacts/edge_search/cross_asset_lead_lag_champion_zero_cost.csv`
+- `artifacts/edge_search/cross_asset_lead_lag_champion_yearly.csv`
+- 실행 모듈: `src/quant_lab/research/cross_asset_lead_lag.py`
 
 ## 참고 자료
 
