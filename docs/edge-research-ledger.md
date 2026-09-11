@@ -73,6 +73,7 @@
 | 2026-09-11 | Weekend move → Monday reversal | 주말 48h 수익 반대 방향, 월요일 00:00 UTC 진입, hold24h, BTC/ETH × 1h/4h | `REJECTED` | discovery/validation 8/8 구간 음수. 비용 0도 모두 음수. 2026만 +1.28%~+3.31%라 최근 regime에만 나타난 효과 | `docs/edge-search-2026-09-11.md`, `weekend_reversal_*csv` |
 | 2026-09-11 | Extreme wick rejection | 현재 range >= prior 168h median ×2, 한쪽 wick >= range 50%, wick 반대 방향, hold4h | `REJECTED` | 비용 포함 discovery/validation/2026 전 데이터셋 음수. 비용 0도 구간별 부호 반전으로 안정성 없음 | `docs/edge-search-2026-09-11.md`, `wick_rejection_*csv` |
 | 2026-09-11 | Low-volatility managed momentum | 336h momentum + EMA400, recent 24h realized vol <= prior 2160h median | `REJECTED` | 비용 포함 discovery/validation 8/8 음수. 비용 0도 ETH1h/BTC4h/ETH4h discovery 음수라 multi-regime 안정성 없음 | `docs/edge-search-2026-09-11.md`, `volatility_managed_momentum_*csv` |
+| 2026-09-11 | High-correlation gated momentum | 336h momentum + EMA400 + BTC/ETH 168h return corr >= 0.70, BTC/ETH × 1h/4h | `REJECTED` | discovery/validation 8/8 통과했지만 2026 stress에서 BTC1h -0.20%, ETH4h -0.03%. 비용 0 stress는 4/4 양수라 gross 효과는 있으나 현재 실행비용에서 margin 부족 | `docs/edge-search-2026-09-11.md`, `correlation_gated_momentum_*csv` |
 | 2026-09-11 | Liquidation burst | 데이터 조사 | `BLOCKED-DATA` | Binance USD-M 역사 liquidationSnapshot이 2024-03-31 이후 끊겼고 forceOrder도 완전한 이벤트 테이프가 아님 | 같은 문서 |
 
 ## 다음 연구 순서

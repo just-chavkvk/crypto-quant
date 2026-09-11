@@ -860,6 +860,50 @@ premium, taker, funding 같은 파생 지표가 아니라 **가격 관계 자체
 - `artifacts/edge_search/volatility_managed_momentum_zero_cost.csv`
 - 실행 모듈: `src/quant_lab/research/volatility_managed_momentum.py`
 
+## High-correlation gated momentum 사전 등록
+
+기존 breadth-confirmed momentum은 BTC와 ETH가 각각 EMA 위인지 확인했습니다. 이번 가설은 가격 수준 대신 **두 자산의 최근 수익률이 실제로 같은 공통-factor에 묶여 움직이는지**를 gate로 사용합니다. 상관이 높은 시장에서는 단일 자산의 장기 momentum이 시장 공통 추세를 반영할 가능성이 높고, 상관이 낮은 분산 국면에서는 outright momentum 노출을 줄인다는 가설입니다.
+
+- universe: BTCUSDT, ETHUSDT
+- timeframe: 1h, 4h
+- own momentum: `close_t > close_{t-336h}`
+- own trend: `close_t > EMA_400h`
+- common-factor gate: BTC/ETH 동일 timeframe log return의 직전 168시간 rolling correlation `>= 0.70`
+- correlation 계산에는 닫힌 현재 bar까지 사용하고 미래 bar는 사용하지 않음
+- target: own momentum + own trend + correlation gate가 모두 참일 때만 long, 아니면 cash
+- execution: 닫힌 signal bar 다음 bar open
+- 비용/리스크: fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-11, pre-stress 판정 뒤 진단
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 correlation window/threshold, momentum/EMA 또는 방향을 바꾸지 않음
+
+이 가설이 실패하면 correlation threshold/window만 바꿔 같은 family를 반복하지 않습니다.
+
+### 실제 결과
+
+사전 등록한 고정 규칙은 discovery와 validation에서 BTC/ETH × 1h/4h **8개 구간을 모두 통과**했습니다.
+
+| 데이터셋 | Discovery | Validation | Validation Sharpe | 2026 Stress | 2026 Sharpe |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| BTC 1h | +6.94% | +14.35% | +1.23 | -0.20% | -0.03 |
+| ETH 1h | +4.76% | +20.82% | +1.38 | +1.13% | +0.27 |
+| BTC 4h | +6.87% | +17.17% | +1.49 | +0.31% | +0.12 |
+| ETH 4h | +5.90% | +28.12% | +1.72 | -0.03% | +0.03 |
+
+비용 0에서는 discovery, validation, 2026 stress의 모든 데이터셋이 양수였습니다. 2026 stress는 BTC1h +2.12%, ETH1h +3.30%, BTC4h +1.71%, ETH4h +1.56%였습니다. 즉 공통-factor correlation gate의 gross 방향성은 남아 있지만, 현재 fee/slippage/volatility-slippage 계약에서는 두 데이터셋의 stress 수익이 0 아래로 내려가 거래 가능한 margin이 충분하지 않았습니다.
+
+**`High-correlation gated momentum`은 REJECTED입니다.** correlation threshold/window 또는 기존 momentum 파라미터를 조정해 같은 family를 다시 탐색하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/correlation_gated_momentum_pre_stress.csv`
+- `artifacts/edge_search/correlation_gated_momentum_stress_2026.csv`
+- `artifacts/edge_search/correlation_gated_momentum_zero_cost.csv`
+- `artifacts/edge_search/correlation_gated_momentum_shadow.csv`
+- 실행 모듈: `src/quant_lab/research/correlation_gated_momentum.py`
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>
