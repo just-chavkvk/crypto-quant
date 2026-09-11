@@ -71,6 +71,7 @@
 | 2026-09-11 | BTC/ETH high-correlation relative-shock fade | corr168h >= 0.70 + relative return 24h z>=2, hold24h | `REJECTED` | discovery -14.89%, validation -21.72%, 2026 -11.73%. 비용 0도 discovery -1.95%, validation -9.43%라 mean-reversion 방향 자체가 약함 | `docs/edge-search-2026-09-11.md`, `relative_shock_fade_*csv` |
 | 2026-09-11 | BTC price shock → lagging ETH continuation | BTC 1h return prior-720h z>=2 + ETH same-direction underreaction <=50%, hold4h | `REJECTED` | discovery +9.73%였지만 validation -4.96% / Sharpe -1.48, 2026 -4.33%. 비용 0 validation은 +2.66%지만 평균 +7.1bp/trade로 왕복 비용 약 14bp 미만이고 2026 비용 0도 -2.84% | `docs/edge-search-2026-09-11.md`, `price_lead_lag_*csv` |
 | 2026-09-11 | Weekend move → Monday reversal | 주말 48h 수익 반대 방향, 월요일 00:00 UTC 진입, hold24h, BTC/ETH × 1h/4h | `REJECTED` | discovery/validation 8/8 구간 음수. 비용 0도 모두 음수. 2026만 +1.28%~+3.31%라 최근 regime에만 나타난 효과 | `docs/edge-search-2026-09-11.md`, `weekend_reversal_*csv` |
+| 2026-09-11 | Extreme wick rejection | 현재 range >= prior 168h median ×2, 한쪽 wick >= range 50%, wick 반대 방향, hold4h | `REJECTED` | 비용 포함 discovery/validation/2026 전 데이터셋 음수. 비용 0도 구간별 부호 반전으로 안정성 없음 | `docs/edge-search-2026-09-11.md`, `wick_rejection_*csv` |
 | 2026-09-11 | Liquidation burst | 데이터 조사 | `BLOCKED-DATA` | Binance USD-M 역사 liquidationSnapshot이 2024-03-31 이후 끊겼고 forceOrder도 완전한 이벤트 테이프가 아님 | 같은 문서 |
 
 ## 다음 연구 순서

@@ -772,6 +772,51 @@ premium, taker, funding 같은 파생 지표가 아니라 **가격 관계 자체
 - `artifacts/edge_search/weekend_reversal_zero_cost.csv`
 - 실행 모듈: `src/quant_lab/research/weekend_reversal.py`
 
+## Extreme wick rejection 사전 등록
+
+완전한 historical liquidation event tape가 없으므로 OHLC candle 안에서 **급격한 한쪽 꼬리와 종가 회복**을 강제청산성 flow가 흡수된 proxy로 한 번만 검증합니다. breakout처럼 range 확장 방향을 따라가지 않고, 극단적 wick이 거부된 방향의 반대로 짧게 mean-reversion을 거래합니다.
+
+- 데이터: Binance USD-M BTCUSDT / ETHUSDT futures OHLCV
+- timeframe: 1h, 4h
+- candle range: `(high - low) / open`
+- extreme range: 현재 range가 현재 bar를 제외한 직전 168시간 range median의 `2배 이상`
+- lower-wick event: `(min(open, close) - low) / (high - low) >= 0.50` → long
+- upper-wick event: `(high - max(open, close)) / (high - low) >= 0.50` → short
+- 양쪽 조건이 동시에 참이거나 range가 0이면 거래하지 않음
+- entry: signal bar 다음 bar open
+- hold: 4시간 고정
+- 보유 중 새 event는 무시
+- 비용/리스크: fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-11, pre-stress 판정 뒤 진단
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 wick share, range multiple, lookback, hold 또는 방향을 조정하지 않음
+
+실패하면 candle-rejection family는 같은 OHLC 계약에서 threshold만 바꿔 반복하지 않습니다.
+
+### 실제 결과
+
+고정 규칙은 비용 포함 기준으로 discovery, validation, 2026 stress에서 BTC/ETH × 1h/4h **모든 구간이 음수**였습니다.
+
+| 데이터셋 | Discovery | Validation | 2026 Stress | Validation 거래 수 |
+| --- | ---: | ---: | ---: | ---: |
+| BTC 1h | -20.32% | -10.37% | -7.29% | 411 |
+| ETH 1h | -10.11% | -20.84% | -7.41% | 388 |
+| BTC 4h | -8.64% | -4.61% | -3.57% | 92 |
+| ETH 4h | -12.23% | -4.94% | -3.83% | 78 |
+
+비용 0에서는 BTC 1h validation +4.23%, ETH 1h discovery +5.71%처럼 일부 구간만 양수였지만 다른 자산·구간에서는 다시 음수였고, 2026 stress는 네 데이터셋 모두 음수였습니다. 따라서 실행비용만의 문제가 아니라 wick rejection 방향 자체가 multi-regime에서 안정적이지 않습니다.
+
+**`Extreme wick rejection`은 REJECTED입니다.** wick share, range multiple, lookback, hold 또는 방향을 바꿔 같은 OHLC candle-rejection family를 재탐색하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/wick_rejection_pre_stress.csv`
+- `artifacts/edge_search/wick_rejection_stress_2026.csv`
+- `artifacts/edge_search/wick_rejection_zero_cost.csv`
+- 실행 모듈: `src/quant_lab/research/wick_rejection.py`
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>
