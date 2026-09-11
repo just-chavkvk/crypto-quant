@@ -4,11 +4,12 @@ import argparse
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-import pandas as pd  # noqa: PANDAS_OK
+import pandas as pd
 
 from quant_lab.backtest.engine import run_backtest
 from quant_lab.backtest.models import BacktestConfig, PerformanceMetrics
 from quant_lab.data.market import load_market_data
+from quant_lab.validation.forward_shadow import run_forward_shadow
 from quant_lab.validation.lookahead import assert_no_lookahead
 
 
@@ -154,6 +155,36 @@ def _frame(evaluations: list[BreadthEvaluation]) -> pd.DataFrame:
     return pd.DataFrame([asdict(evaluation) for evaluation in evaluations])
 
 
+def _evaluate_shadow(
+    dataset: BreadthDataset,
+    spec: BreadthMomentumSpec,
+) -> BreadthEvaluation | None:
+    strategy = BreadthMomentumStrategy(
+        spec=spec,
+        timeframe_hours=dataset.timeframe_hours,
+        other_close=dataset.other_close,
+    )
+    result = run_forward_shadow(
+        dataset.own,
+        strategy,
+        start="2026-09-11",
+        end="2100-01-01",
+        config=CONFIG,
+        symbol=dataset.symbol,
+    )
+    if result is None:
+        return None
+    metrics = result.metrics
+    return BreadthEvaluation(
+        dataset=dataset.label,
+        period="future_shadow",
+        total_return=metrics.total_return,
+        sharpe_ratio=metrics.sharpe_ratio,
+        max_drawdown=metrics.max_drawdown,
+        number_of_trades=metrics.number_of_trades,
+    )
+
+
 def run_research(root: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     spec = BreadthMomentumSpec()
     datasets = load_breadth_datasets(root)
@@ -187,7 +218,7 @@ def run_research(root: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         stress = _evaluate(dataset, spec, "stress_2026", "2026-01-01", "2026-09-11")
         if stress is not None:
             stress_rows.append(stress)
-        shadow = _evaluate(dataset, spec, "future_shadow", "2026-09-11", "2100-01-01")
+        shadow = _evaluate_shadow(dataset, spec)
         if shadow is not None:
             shadow_rows.append(shadow)
     stress_frame = _frame(stress_rows)

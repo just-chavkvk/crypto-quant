@@ -4,11 +4,12 @@ import argparse
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-import pandas as pd  # noqa: PANDAS_OK
+import pandas as pd
 
 from quant_lab.backtest.engine import run_backtest
 from quant_lab.backtest.models import BacktestConfig, PerformanceMetrics
 from quant_lab.data.market import load_market_data
+from quant_lab.validation.forward_shadow import run_forward_shadow
 from quant_lab.validation.lookahead import assert_no_lookahead
 
 
@@ -153,6 +154,32 @@ def _to_frame(evaluations: list[WindowEvaluation]) -> pd.DataFrame:
     return pd.DataFrame([asdict(evaluation) for evaluation in evaluations])
 
 
+def _evaluate_shadow(
+    dataset: ResearchDataset,
+    spec: PositionCapMomentumSpec,
+) -> WindowEvaluation | None:
+    strategy = PositionCapMomentumStrategy(spec=spec, timeframe_hours=dataset.timeframe_hours)
+    result = run_forward_shadow(
+        dataset.data,
+        strategy,
+        start="2026-09-11",
+        end="2100-01-01",
+        config=CONFIG,
+        symbol=dataset.symbol,
+    )
+    if result is None:
+        return None
+    metrics = result.metrics
+    return WindowEvaluation(
+        dataset=dataset.label,
+        period="future_shadow",
+        total_return=metrics.total_return,
+        sharpe_ratio=metrics.sharpe_ratio,
+        max_drawdown=metrics.max_drawdown,
+        number_of_trades=metrics.number_of_trades,
+    )
+
+
 def run_research(root: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
     spec = PositionCapMomentumSpec()
     datasets = load_research_datasets(root)
@@ -169,13 +196,7 @@ def run_research(root: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
             evaluation = _evaluate(dataset, spec, period, start, end)
             if evaluation is not None:
                 historical.append(evaluation)
-        shadow_evaluation = _evaluate(
-            dataset,
-            spec,
-            "future_shadow",
-            "2026-09-11",
-            "2100-01-01",
-        )
+        shadow_evaluation = _evaluate_shadow(dataset, spec)
         if shadow_evaluation is not None:
             shadow.append(shadow_evaluation)
     return _to_frame(historical), _to_frame(shadow)
