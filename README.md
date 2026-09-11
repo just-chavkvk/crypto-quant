@@ -206,6 +206,16 @@ uv run quant data --help
 
 GitHub Actions도 같은 검증 순서를 실행합니다.
 
+## Forward shadow tracking
+
+역사 검증을 통과한 `global-position cap momentum`과 `breadth-confirmed momentum`은 2026-09-11 00:00 UTC 이후 데이터만 future shadow 증거로 사용합니다. 아래 명령은 Binance USD-M의 완전히 닫힌 BTC/ETH 1h·4h bar와 global long/short ratio를 증분 갱신한 뒤, 동결된 전략을 다시 평가합니다.
+
+```bash
+uv run python -m quant_lab.research.shadow_status --root artifacts/edge_search --refresh
+```
+
+신호 계산은 shadow 시작 이전의 336h/400h/2160h warm-up history를 유지하고, 성과만 shadow 시작 이후로 측정합니다. `WAITING_FOR_DATA`는 새 완성 bar가 없다는 뜻이고, `TRACKING`은 관찰 중, `READY_FOR_PAPER_REVIEW`는 BTC/ETH × 1h/4h 네 데이터셋이 모두 누적 수익률 > 0, Sharpe > 0, 거래 수 >= 10을 만족했다는 뜻입니다. 이 명령은 paper/live 주문을 실행하거나 자동 승격하지 않습니다.
+
 ## Explicitly out of scope for v0.1
 
 - Live Trading

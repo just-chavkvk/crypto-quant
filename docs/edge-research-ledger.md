@@ -79,10 +79,18 @@
 3. BTC/ETH breadth-confirmed momentum도 파라미터 동결 상태로 future shadow에서 관찰합니다.
 4. high-correlation relative-shock fade는 동일 family 재튜닝 없이 닫습니다.
 5. BTC price shock → lagging ETH continuation은 같은 z/underreaction/hold 조정으로 재시험하지 않습니다. 실제 체결·호가처럼 시점 계약이 달라지거나 target universe가 달라질 때만 재검토합니다.
-2. global/top-position ETH outright, BTC/ETH relative-value, funding differential 가족의 threshold/lookback/holding 조정은 반복하지 않습니다.
-3. Liquidation은 완전한 historical event source를 확보하기 전까지 정식 백테스트를 시작하지 않습니다.
-4. 새로운 정식 후보는 기존 `REJECTED`와 다른 데이터 계약 또는 경제 메커니즘으로 사전 등록합니다.
-5. 역사 데이터에서 살아남은 후보 하나만 사전 등록한 미래 shadow 구간으로 보냅니다.
+6. global/top-position ETH outright, BTC/ETH relative-value, funding differential 가족의 threshold/lookback/holding 조정은 반복하지 않습니다.
+7. Liquidation은 완전한 historical event source를 확보하기 전까지 정식 백테스트를 시작하지 않습니다.
+8. 새로운 정식 후보는 기존 `REJECTED`와 다른 데이터 계약 또는 경제 메커니즘으로 사전 등록합니다.
+9. 역사 데이터에서 살아남은 후보 하나만 사전 등록한 미래 shadow 구간으로 보냅니다.
+
+## Future shadow 운영 상태
+
+- 공통 실행: `uv run python -m quant_lab.research.shadow_status --root artifacts/edge_search --refresh`
+- 2026-09-11 첫 refresh 후 공통 최신 완성 bar: `2026-09-11 00:00 UTC`
+- global-position cap momentum: `TRACKING`, 4/4 데이터셋 평가 시작, 최소 거래 수 0
+- BTC/ETH breadth-confirmed momentum: `TRACKING`, 4/4 데이터셋 평가 시작, 최소 거래 수 0
+- `READY_FOR_PAPER_REVIEW`가 되기 전까지 `PROMOTED` 또는 paper/live 연결 금지
 
 ## 커밋 규칙
 

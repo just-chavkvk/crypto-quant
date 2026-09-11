@@ -619,6 +619,28 @@ crowding/flow/funding 계열과 다른 cross-sectional momentum 메커니즘을 
 - `artifacts/edge_search/breadth_momentum_shadow.csv`
 - 실행 모듈: `src/quant_lab/research/breadth_momentum.py`
 
+### Future shadow runner 운영 시작
+
+두 `SHADOW` 후보를 같은 규칙으로 누적 관찰하기 위해 공통 runner를 추가했습니다. 과거 구현처럼 shadow 구간만 잘라서 신호를 새로 계산하면 336h momentum, EMA 400h, position cap 2160h warm-up이 끊길 수 있으므로, runner는 **전체 과거 history로 신호를 만든 뒤 shadow 시작 직전 1개 bar를 실행 context로 유지하고 성과만 2026-09-11 이후로 측정**합니다.
+
+실행 명령:
+
+```bash
+uv run python -m quant_lab.research.shadow_status --root artifacts/edge_search --refresh
+```
+
+`--refresh`는 Binance USD-M 공개 데이터에서 완전히 닫힌 BTC/ETH 1h·4h futures OHLCV와 global account long/short ratio만 증분 갱신합니다. ratio endpoint의 timestamp는 period 종료 시각이므로 1h/4h를 각각 빼 기존 microstructure의 bar 시작 timestamp 계약에 맞춥니다. 기존 trailing ratio 결측도 함께 backfill합니다.
+
+2026-09-11 첫 실제 실행에서 BTC/ETH 각각 1h bar 24개, 4h bar 5개를 추가했고, ratio는 1h 29개/4h 7개를 채웠습니다. 갱신 뒤 공통 최신 완성 bar는 **2026-09-11 00:00 UTC**였고 두 후보 모두 네 데이터셋 평가가 시작되어 `TRACKING` 상태가 됐습니다. 현재 최소 거래 수는 0이며 네 데이터셋 모두 shadow return/Sharpe/trade 수가 0이라 승격 증거는 아직 없습니다.
+
+상태 파일:
+
+- `artifacts/edge_search/shadow_status.csv`
+- `artifacts/edge_search/position_cap_momentum_shadow.csv`
+- `artifacts/edge_search/breadth_momentum_shadow.csv`
+
+`READY_FOR_PAPER_REVIEW`는 자동 `PROMOTED`가 아닙니다. 네 데이터셋이 모두 return > 0, Sharpe > 0, trades >= 10을 만족했을 때 paper 후보 검토가 가능하다는 상태만 표시하며, paper/live 주문은 계속 OFF입니다.
+
 ## BTC/ETH high-correlation relative-shock fade 사전 등록
 
 premium, taker, funding 같은 파생 지표가 아니라 **가격 관계 자체의 일시적 이탈**을 검증합니다. BTC와 ETH가 최근 일주일 동안 높은 상관을 유지했는데 24시간 상대수익만 역사적으로 극단까지 벌어지면, 일시적 dislocation이 평균회귀한다는 가설입니다.
