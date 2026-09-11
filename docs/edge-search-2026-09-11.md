@@ -435,6 +435,37 @@ global account ratio에서 보였던 일부 validation 양수 반응도 재현�
 - `artifacts/edge_search/relative_value_wave_champions_yearly.csv`
 - 실행 모듈: `src/quant_lab/research/relative_value_wave.py`
 
+## Funding settlement 상대가치 wave 사전 등록
+
+hourly microstructure 신호와 다른 구조적 이벤트를 보기 위해 Binance perpetual funding settlement 직후의 BTC/ETH 상대가치 unwind를 검증합니다. BTC/ETH funding event는 2020-01부터 같은 timestamp에 7,333건 존재하며, 0/8/16 UTC에 정산됩니다. timestamp가 정각보다 수십 ms 늦는 이벤트가 있으므로 해당 시간을 신호 시각으로만 사용하고 **다음 1시간 bar open**에서 진입합니다.
+
+공통 계약:
+
+- source: BTCUSDT / ETHUSDT 실제 funding settlement rate
+- funding spread: `ETH funding_rate - BTC funding_rate`
+- 표준화: 현재 settlement를 제외한 직전 90개 공통 funding event의 mean/std
+- event threshold: `|funding_spread_z| >= 2.0`
+- pair 방향: raw funding spread가 양수면 ETH가 상대적으로 더 crowded long이라고 보고 short ETH / long BTC, 음수면 반대
+- entry: funding settlement가 관측된 시간의 다음 1시간 bar open
+- hold: 1시간, 4시간
+- exit: hold 종료 시 두 leg open에서 동시 청산
+- pair return: ETH/BTC 각 50% dollar-neutral gross notional
+- 비용: 각 leg 편도 fee 5 bps + slippage 2 bps
+- 4시간 hold까지만 사용해 다음 8시간 funding settlement를 포지션 보유 중 통과하지 않음
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- 2026-01-01 ~ 2026-08-31: pre-stress champion을 고른 뒤에만 stress history로 확인
+- pre-pass: discovery와 validation 모두 수익률 > 0, Sharpe > 0, 거래 수 >= 10
+- champion: pre-pass 우선, 이후 `validation Sharpe + 0.25 * validation return`; 동률이면 1시간 hold 우선
+- 비용 0 결과는 진단 전용
+
+두 variant를 사전 등록합니다.
+
+1. `funding_diff_fade`: funding spread extreme만 사용합니다.
+2. `funding_premium_confirmed_fade`: funding spread 방향과 같은 시점의 `ETH premium_close - BTC premium_close` 방향이 같을 때만 거래합니다.
+
+각 variant에 1h/4h hold를 적용해 총 4개 trial만 실행합니다. 결과를 본 뒤 z-threshold, rolling window, hold, 방향을 바꿔 같은 funding wave를 반복하지 않습니다.
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>

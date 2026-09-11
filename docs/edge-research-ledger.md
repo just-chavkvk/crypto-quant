@@ -64,12 +64,13 @@
 | 2026-09-11 | BTC positioning shock → ETH/BTC catch-up pair | global/top-position × 1h/4h, 4개 사전 등록 | `REJECTED` | 0/4 pre-pass. 가장 덜 나쁜 top-position 4h도 discovery -7.46%, validation -11.72%, 2026 -2.65%. 비용 0에서도 discovery -0.61% | `docs/edge-search-2026-09-11.md`, `relative_value_wave_*csv` |
 | 2026-09-11 | BTC/ETH premium + OI relative crowding fade | 1h/4h, 2개 사전 등록 | `REJECTED` | 0/2 pre-pass. 4h discovery -10.61%, validation -45.33%, 2026 -11.40%. 비용 0도 validation -15.82% | `docs/edge-search-2026-09-11.md`, `relative_value_wave_*csv` |
 | 2026-09-11 | BTC/ETH taker relative chase fade | 1h/4h, 2개 사전 등록 | `REJECTED` | 0/2 pre-pass. 4h discovery -17.41%, validation -45.34%, 2026 -18.48%. 비용 0도 validation -5.99% | `docs/edge-search-2026-09-11.md`, `relative_value_wave_*csv` |
+| 2026-09-11 | BTC/ETH funding settlement differential fade | pure/premium-confirmed × 1h/4h, 4개 사전 등록 | `NEXT` | 8시간 funding 정산 직후 상대 funding crowding unwind를 dollar-neutral pair로 검증. 다음 hourly open부터 진입 | `docs/edge-search-2026-09-11.md` |
 | 2026-09-11 | Liquidation burst | 데이터 조사 | `BLOCKED-DATA` | Binance USD-M 역사 liquidationSnapshot이 2024-03-31 이후 끊겼고 forceOrder도 완전한 이벤트 테이프가 아님 | 같은 문서 |
 
 ## 다음 연구 순서
 
-1. 다음 후보는 funding settlement처럼 기존 hourly microstructure와 다른 이벤트 메커니즘에서 찾습니다.
-2. global/top-position ETH outright와 이번 BTC/ETH relative-value 세 가족의 threshold/lookback/holding 조정은 반복하지 않습니다.
+1. BTC/ETH funding settlement differential fade 4 trial을 사전 등록한 그대로 실행합니다.
+2. global/top-position ETH outright와 BTC/ETH relative-value 세 가족의 threshold/lookback/holding 조정은 반복하지 않습니다.
 3. Liquidation은 완전한 historical event source를 확보하기 전까지 정식 백테스트를 시작하지 않습니다.
 4. 새로운 정식 후보는 기존 `REJECTED`와 다른 데이터 계약 또는 경제 메커니즘으로 사전 등록합니다.
 5. 역사 데이터에서 살아남은 후보 하나만 사전 등록한 미래 shadow 구간으로 보냅니다.
