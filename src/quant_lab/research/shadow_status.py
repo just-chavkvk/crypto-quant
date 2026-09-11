@@ -6,10 +6,13 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Final
 
-import pandas as pd
+import pandas as pd  # noqa: PANDAS_OK
 
 from quant_lab.data.shadow_refresh import refresh_shadow_data
 from quant_lab.research.breadth_momentum import run_research as run_breadth_momentum
+from quant_lab.research.dual_confirmed_momentum import (
+    run_research as run_dual_confirmed_momentum,
+)
 from quant_lab.research.position_cap_momentum import (
     load_research_datasets,
 )
@@ -83,12 +86,15 @@ def _family_status(
 def run_shadow_status(root: Path) -> pd.DataFrame:
     _, position_shadow = run_position_cap_momentum(root)
     _, _, breadth_shadow = run_breadth_momentum(root)
+    _, _, dual_shadow = run_dual_confirmed_momentum(root)
     position_shadow.to_csv(root / "position_cap_momentum_shadow.csv", index=False)
     breadth_shadow.to_csv(root / "breadth_momentum_shadow.csv", index=False)
+    dual_shadow.to_csv(root / "dual_confirmed_momentum_shadow.csv", index=False)
     latest_common_bar = _latest_common_bar(root)
     statuses = (
         _family_status("global_position_cap_momentum", position_shadow, latest_common_bar),
         _family_status("breadth_confirmed_momentum", breadth_shadow, latest_common_bar),
+        _family_status("dual_confirmed_momentum", dual_shadow, latest_common_bar),
     )
     frame = pd.DataFrame([asdict(status) for status in statuses])
     frame.to_csv(root / "shadow_status.csv", index=False)
