@@ -817,6 +817,49 @@ premium, taker, funding 같은 파생 지표가 아니라 **가격 관계 자체
 - `artifacts/edge_search/wick_rejection_zero_cost.csv`
 - 실행 모듈: `src/quant_lab/research/wick_rejection.py`
 
+## Low-volatility managed momentum 사전 등록
+
+기존 336h momentum + EMA400 추세 규칙 자체를 다시 탐색하지 않고, **최근 변동성이 과도할 때 exposure를 끄는 risk-regime filter**만 추가합니다. 고변동 deleveraging/chop 구간보다 낮은 변동성에서 추세가 더 안정적으로 이어진다는 가설입니다.
+
+- 데이터: Binance USD-M BTCUSDT / ETHUSDT 1h·4h futures OHLCV
+- base momentum: `close_t > close_{t-336h}`
+- trend gate: `close_t > EMA_400h`
+- recent realized volatility: 1-bar log return의 직전 포함 24시간 rolling std
+- volatility reference: current recent vol을 제외한 직전 2160시간 recent-vol history의 median
+- regime gate: `recent_vol <= prior_2160h_median_vol`
+- target: base momentum + trend gate + low-vol regime가 모두 참이면 long, 아니면 cash
+- execution: 닫힌 signal bar 다음 bar open
+- 비용/리스크: fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-11, pre-stress 판정 뒤 진단
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 vol window, history, quantile 또는 momentum 파라미터를 조정하지 않음
+
+역사 stress까지 살아도 2026은 이미 본 데이터이므로 최종 승격은 2026-09-11 이후 future shadow에서만 가능합니다.
+
+### 실제 결과
+
+비용 포함 고정 규칙은 discovery와 validation에서 BTC/ETH × 1h/4h **8개 구간 모두 음수**였습니다.
+
+| 데이터셋 | Discovery | Validation | 2026 Stress | Validation 거래 수 |
+| --- | ---: | ---: | ---: | ---: |
+| BTC 1h | -4.98% | -2.65% | -1.75% | 194 |
+| ETH 1h | -7.19% | -5.91% | +1.93% | 184 |
+| BTC 4h | -8.55% | -0.21% | -0.18% | 138 |
+| ETH 4h | -11.30% | -5.39% | +6.19% | 130 |
+
+비용 0에서는 BTC 1h discovery/validation과 여러 최근 구간이 양수로 회복되지만, ETH 1h discovery -0.86%, BTC 4h discovery -3.03%, ETH 4h discovery -5.91%가 남았습니다. 따라서 낮은 변동성 regime이 거래비용을 줄이면 일부 개선되는 경향은 있어도, 네 시장과 여러 regime에서 공통 Edge로 볼 수 없습니다.
+
+**`Low-volatility managed momentum`은 REJECTED입니다.** recent-vol window, 2160h history, median threshold 또는 기존 momentum 파라미터를 조정해 같은 family를 재탐색하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/volatility_managed_momentum_pre_stress.csv`
+- `artifacts/edge_search/volatility_managed_momentum_stress_2026.csv`
+- `artifacts/edge_search/volatility_managed_momentum_zero_cost.csv`
+- 실행 모듈: `src/quant_lab/research/volatility_managed_momentum.py`
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>
