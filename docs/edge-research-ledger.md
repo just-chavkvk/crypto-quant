@@ -57,6 +57,7 @@
 | 2026-09-11 | Taker + positioning combo | 18개 | `REJECTED` | pre-pass 0/18 | 같은 CSV |
 | 2026-09-11 | Top-vs-global positioning filter | 6개 | `PRE-SCREEN` | pre-pass 2/6. 절대값보다 변화율/불일치로 재정의할 가치 있음 | 같은 CSV |
 | 2026-09-11 | Taker-flow shock × price divergence / absorption | 연구 설계만 완료 | `NEXT` | 단순 taker 추세/반전은 이미 실패. 5m/15m 닫힌 봉에서 flow 급변 대비 가격 반응 잔차를 새 가설로 검증 | `docs/edge-search-2026-09-11.md` |
+| 2026-09-11 | Taker-flow shock × price divergence / absorption → flow 반대 방향 | 사전 등록 6개 후보, BTC/ETH × 5m/15m | `REJECTED` | 6/6 pre-stress 실패. 가장 덜 나쁜 4h strict 후보도 discovery 최저 -4.19%, validation 최저 -2.10% / Sharpe -1.27. 비용 0에서도 ETH 양 timeframe 음수 | `docs/edge-search-2026-09-11.md`, `taker_divergence_*csv` |
 | 2026-09-11 | Long/Short ratio velocity / acceleration | 연구 설계만 완료 | `NEXT` | 절대 crowd 수준 대신 `Δlog(ratio)`, velocity, top-account vs top-position disagreement를 OI/가격과 결합 | 같은 문서 |
 | 2026-09-11 | Liquidation burst | 데이터 조사 | `BLOCKED-DATA` | Binance USD-M 역사 liquidationSnapshot이 2024-03-31 이후 끊겼고 forceOrder도 완전한 이벤트 테이프가 아님 | 같은 문서 |
 

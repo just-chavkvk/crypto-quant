@@ -105,6 +105,66 @@ Binance USD-M `liquidationSnapshot` 공개 아카이브는 2024-03-31 이후 업
 
 주 방향 가설이 실패하고 같은-flow 방향 수익률이 좋아 보여도 이번 결과에서 즉시 방향을 뒤집어 Edge로 승격하지 않습니다. 그 경우 별도 가설로 다시 사전 등록한 뒤 검증합니다.
 
+## Taker-flow divergence 실제 백테스트 결과
+
+사전 등록한 규칙 그대로 공식 Binance USD-M 월별 futures kline을 내려받아 실행했습니다.
+
+- 데이터 범위: 2020-01-01 ~ 2026-08-31
+- 데이터셋: BTCUSDT / ETHUSDT × 5m / 15m
+- 누락 candle: 네 데이터셋 모두 0
+- 중복 timestamp: 네 데이터셋 모두 0
+- 2020~2021 월별 파일은 헤더가 없고 2022년 이후 파일은 헤더가 있으므로 두 형식을 구분해 결합
+- 후보 수: 주 조건 / strict 조건 × 15m / 1h / 4h 보유 = 6개
+- 2026 결과는 후보 선택에 사용하지 않고, 2020~2025 결과로 1개를 고른 뒤 stress check만 수행
+
+### 2020~2025 사전 판정
+
+| 후보 | Discovery 최저 수익 | Validation 최저 수익 | Validation 최저 Sharpe | Validation 최소 거래 수 | 판정 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| strict 2.5σ / response 0σ / 4h | -4.19% | -2.10% | -1.27 | 11 | FAIL |
+| strict 2.5σ / response 0σ / 1h | -1.80% | -3.00% | -2.73 | 11 | FAIL |
+| strict 2.5σ / response 0σ / 15m | -2.28% | -1.50% | -3.19 | 11 | FAIL |
+| primary 2σ / response 0.5σ / 4h | -55.22% | -26.82% | -3.45 | 576 | FAIL |
+| primary 2σ / response 0.5σ / 1h | -61.95% | -38.93% | -9.71 | 687 | FAIL |
+| primary 2σ / response 0.5σ / 15m | -66.98% | -45.83% | -21.04 | 738 | FAIL |
+
+사전 구간에서 한 후보도 엄격한 통과 기준을 만족하지 못했습니다. 결과를 보기 전에 정한 규칙에 따라 가장 덜 나쁜 `strict 2.5σ / response 0σ / 4h` 조합만 2026 stress 구간을 열었습니다.
+
+### 사전 1위 후보의 2024~2025 세부 결과
+
+| 데이터셋 | 수익 | Sharpe | 거래 수 |
+| --- | ---: | ---: | ---: |
+| BTCUSDT 5m | -0.44% | -0.32 | 23 |
+| BTCUSDT 15m | -0.01% | -0.00 | 11 |
+| ETHUSDT 5m | -1.51% | -0.68 | 45 |
+| ETHUSDT 15m | -2.10% | -1.27 | 20 |
+
+### 2026 stress check
+
+| 데이터셋 | 수익 | Sharpe | 거래 수 |
+| --- | ---: | ---: | ---: |
+| BTCUSDT 5m | -0.59% | -0.69 | 40 |
+| BTCUSDT 15m | -1.26% | -2.50 | 18 |
+| ETHUSDT 5m | -1.55% | -1.43 | 35 |
+| ETHUSDT 15m | -0.48% | -0.66 | 19 |
+
+### 비용 0 진단
+
+같은 사전 1위 후보의 2024~2025 구간에서 fee/slippage를 0으로 둔 진단도 수행했습니다. BTC 5m/15m은 각각 약 +0.24%, +0.34%였지만 ETH 5m/15m은 약 -0.17%, -1.47%였습니다. 즉 비용이 전부 사라져도 BTC/ETH에 공통으로 유지되는 방향성 Edge가 아니었습니다.
+
+### 판정
+
+**`Taker-flow shock × 가격 divergence/absorption → flow 반대 방향` 가설은 REJECTED입니다.**
+
+강한 공격 주문을 가격이 흡수하면 반대편 유동성이 이후에도 이긴다는 주가설은 discovery/validation에서 재현되지 않았고 2026 stress에서도 네 데이터셋 모두 손실이었습니다. 결과를 본 뒤 같은-flow 방향으로 뒤집어 성공으로 취급하지 않습니다. 같은-flow continuation을 다시 보려면 별도 가설로 사전 등록해야 합니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/taker_divergence_summary_pre_stress.csv`
+- `artifacts/edge_search/taker_divergence_details_pre_stress.csv`
+- `artifacts/edge_search/taker_divergence_champion_stress_2026.csv`
+- `artifacts/edge_search/taker_divergence_champion_validation_zero_cost.csv`
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>
