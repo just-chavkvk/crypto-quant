@@ -6,7 +6,7 @@ Funding/OI의 단순 방향성 가설 다음에 무엇을 연구할지 조사하
 
 Taker-flow absorption, 같은 자산의 Long/Short 변화속도·가속도 + OI/가격 상태, BTC global positioning/OI shock → ETH lead-lag, BTC top-trader position velocity/OI shock → ETH lead-lag는 정식 검증에서 모두 탈락했습니다. Liquidation burst는 신뢰할 수 있는 역사 데이터가 없어 계속 보류합니다.
 
-top-trader position source는 비용을 제거해도 discovery와 validation이 모두 음수여서 global-ratio 실험보다 더 약했습니다. BTC/ETH 상대가치 wave도 8개 trial 전부 pre-pass에 실패했습니다. 같은 source에서 threshold/lookback/holding만 바꾼 재시험은 하지 않습니다.
+top-trader position source는 비용을 제거해도 discovery와 validation이 모두 음수여서 global-ratio 실험보다 더 약했습니다. BTC/ETH 상대가치 wave 8개와 funding settlement 상대가치 wave 4개도 전부 pre-pass에 실패했습니다. 같은 source에서 threshold/lookback/holding만 바꾼 재시험은 하지 않습니다.
 
 ## 이미 수행된 미시구조 실험
 
@@ -465,6 +465,31 @@ hourly microstructure 신호와 다른 구조적 이벤트를 보기 위해 Bina
 2. `funding_premium_confirmed_fade`: funding spread 방향과 같은 시점의 `ETH premium_close - BTC premium_close` 방향이 같을 때만 거래합니다.
 
 각 variant에 1h/4h hold를 적용해 총 4개 trial만 실행합니다. 결과를 본 뒤 z-threshold, rolling window, hold, 방향을 바꿔 같은 funding wave를 반복하지 않습니다.
+
+## Funding settlement 상대가치 wave 실제 결과
+
+사전 등록한 4개 trial은 모두 pre-pass에 실패했습니다.
+
+| Variant | Hold | Discovery | Validation | Validation Sharpe | Validation 거래 수 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| funding diff fade | 1h | -20.10% | -29.21% | -47.97 | 149 |
+| funding diff fade | 4h | -16.19% | -27.51% | -17.43 | 149 |
+| funding + premium confirm | 1h | -15.79% | -25.58% | -46.82 | 119 |
+| funding + premium confirm | 4h | -9.51% | -25.22% | -18.62 | 119 |
+
+pre-stress score가 가장 높은 pure funding 4시간 후보를 2026 stress에 열었고 결과는 **-7.86%, Sharpe -26.48, 48건**이었습니다. 비용 0에서는 discovery +3.11%였지만 validation -10.66%로 반전해, execution cost만 낮추면 살아나는 형태도 아니었습니다.
+
+연도별 champion 결과도 2022 -9.69%, 2023 -7.21%, 2024 -8.65%, 2025 -20.64%, 2026 -7.86%로 전 구간 음수였습니다.
+
+**`BTC/ETH funding settlement differential fade`는 REJECTED입니다.** 같은 funding spread에서 threshold/window/hold/방향만 바꾼 재시험은 하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/funding_relative_value_pre_stress.csv`
+- `artifacts/edge_search/funding_relative_value_champion_stress_2026.csv`
+- `artifacts/edge_search/funding_relative_value_champion_zero_cost.csv`
+- `artifacts/edge_search/funding_relative_value_champion_yearly.csv`
+- 실행 모듈: `src/quant_lab/research/funding_relative_value.py`
 
 ## 참고 자료
 
