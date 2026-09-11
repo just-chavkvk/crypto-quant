@@ -4,9 +4,9 @@ Funding/OI의 단순 방향성 가설 다음에 무엇을 연구할지 조사하
 
 ## 결론
 
-Taker-flow absorption, 같은 자산의 Long/Short 변화속도·가속도 + OI/가격 상태, BTC global positioning/OI shock → ETH lead-lag는 정식 검증에서 모두 탈락했습니다. Liquidation burst는 신뢰할 수 있는 역사 데이터가 없어 계속 보류합니다.
+Taker-flow absorption, 같은 자산의 Long/Short 변화속도·가속도 + OI/가격 상태, BTC global positioning/OI shock → ETH lead-lag, BTC top-trader position velocity/OI shock → ETH lead-lag는 정식 검증에서 모두 탈락했습니다. Liquidation burst는 신뢰할 수 있는 역사 데이터가 없어 계속 보류합니다.
 
-다음 정식 연구 후보는 **BTC top-trader position velocity/OI shock → ETH cross-asset lead-lag**입니다. global account ratio와 다른 포지션 규모 series가 ETH에 전달되는지 별도 가설로 사전 등록하고, 이번 global-ratio 결과를 보고 threshold나 holding만 바꾸지는 않습니다.
+top-trader position source는 비용을 제거해도 discovery와 validation이 모두 음수여서 global-ratio 실험보다 더 약했습니다. 같은 source에서 threshold/lookback/holding만 바꾼 재시험은 하지 않습니다.
 
 ## 이미 수행된 미시구조 실험
 
@@ -290,6 +290,67 @@ pre-stress score가 높은 4시간 hold를 champion으로 고른 뒤 2026 stress
 - `artifacts/edge_search/cross_asset_lead_lag_champion_zero_cost.csv`
 - `artifacts/edge_search/cross_asset_lead_lag_champion_yearly.csv`
 - 실행 모듈: `src/quant_lab/research/cross_asset_lead_lag.py`
+
+## BTC top-trader position velocity/OI shock → ETH cross-asset lead-lag 사전 등록
+
+global account ratio 결과를 본 뒤 threshold나 holding을 다시 조정하지 않고, Binance metrics의 별도 source인 top-trader position ratio로 같은 정보 전달 가설을 검증합니다. 결과를 열기 전에 아래 규칙을 고정합니다.
+
+- source asset: BTCUSDT
+- target asset: ETHUSDT
+- source data: Binance USD-M BTCUSDT 5분 metrics의 매시간 `:55` snapshot + BTCUSDT 1시간 futures kline
+- target data: Binance USD-M ETHUSDT 1시간 futures kline
+- positioning source: `sum_toptrader_long_short_ratio`만 사용
+- lookback: 4시간으로 고정
+- velocity: `log(top_position_ratio_t) - log(top_position_ratio_{t-4h})`
+- acceleration: `velocity_t - velocity_{t-4h}`
+- 표준화: 현재 관측치를 제외한 직전 720개 시간의 완전한 관측치만 사용
+- shock threshold: `|velocity_z| >= 2.0` 및 `|acceleration_z| >= 1.0`
+- BTC state: velocity와 acceleration, BTC 4시간 가격 변화가 같은 방향이고 계약 수 OI 4시간 변화는 반대 방향인 deleveraging/cover state
+- ETH 방향 가설: BTC top-trader position velocity 방향을 ETH가 뒤따른다
+- holding: 1시간과 4시간의 2개 trial
+- signal time: BTC의 해당 1시간 봉이 완전히 닫힌 뒤
+- entry: 다음 ETH 1시간 봉 open
+- exit: 진입 후 각각 1시간/4시간 뒤 ETH open
+- 보유 중 겹치는 이벤트는 무시
+- 결측 시계열은 forward-fill하지 않고 완전한 시간 grid에서 해당 feature를 결측 처리
+- 비용: 편도 fee 5 bps + slippage 2 bps
+- discovery: 2023-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- 2026-01-01 ~ 2026-08-31은 두 trial의 pre-stress 결과로 champion을 고른 뒤에만 stress history로 확인
+- pre-pass: discovery와 validation 모두 수익률 > 0, Sharpe > 0, 거래 수 >= 10
+- champion: pre-pass 우선, 이후 `validation Sharpe + 0.25 * validation return`; 동률이면 1시간 hold 우선
+- 비용 0 결과는 실행비용 민감도 진단으로만 사용하고 판정을 뒤집지 않음
+
+이 source도 실패하면 같은 top-trader position series에서 threshold/lookback/holding만 바꿔 재시험하지 않습니다. 재검토는 target asset, source series, 실행 가정, 또는 독립적인 미래 데이터처럼 정보 전달 메커니즘이 바뀔 때만 엽니다.
+
+## BTC top-trader position velocity/OI shock → ETH cross-asset lead-lag 실제 결과
+
+사전 등록한 1시간/4시간 hold 두 trial은 모두 discovery와 validation에서 손실이 나 pre-pass에 실패했습니다.
+
+| Hold | Discovery | Sharpe | 거래 수 | Validation | Sharpe | 거래 수 | 판정 |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 1h | -13.07% | -48.71 | 55 | -19.22% | -38.99 | 90 | discovery/validation 모두 실패 |
+| 4h | -7.70% | -7.63 | 43 | -22.15% | -6.32 | 72 | discovery/validation 모두 실패 |
+
+pre-stress score가 덜 나쁜 4시간 hold를 champion으로 고른 뒤 2026 stress history를 열었습니다. 결과는 **-19.66%, Sharpe -33.68, 26건**이었습니다. 연도별로도 2025년만 +4.29%였고 2023 -7.70%, 2024 -25.36%, 2026 -19.66%로 일관성이 없었습니다.
+
+### 비용 민감도
+
+4시간 champion에서 fee/slippage를 0으로 제거해도 discovery **-1.96%, Sharpe -1.69**, validation **-13.88%, Sharpe -3.54**였습니다. 따라서 이번 실패는 왕복 비용 때문에 양수 gross Edge가 사라진 경우가 아니라, 비용 전에도 source 방향성이 약한 경우입니다.
+
+### 판정
+
+**`BTC top-trader position velocity + OI 감소 shock → ETH follow` 가설은 REJECTED입니다.**
+
+global account ratio에서 보였던 일부 validation 양수 반응도 재현되지 않았고, top-trader position source는 discovery/validation/2026 stress에서 모두 음수였습니다. 같은 series에서 threshold/lookback/holding만 조정한 재시험은 하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/top_trader_position_lead_lag_pre_stress.csv`
+- `artifacts/edge_search/top_trader_position_lead_lag_champion_stress_2026.csv`
+- `artifacts/edge_search/top_trader_position_lead_lag_champion_zero_cost.csv`
+- `artifacts/edge_search/top_trader_position_lead_lag_champion_yearly.csv`
+- 실행 모듈: `src/quant_lab/research/top_trader_position_lead_lag.py`
 
 ## 참고 자료
 

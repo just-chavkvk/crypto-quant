@@ -60,16 +60,15 @@
 | 2026-09-11 | Taker-flow shock × price divergence / absorption → flow 반대 방향 | 사전 등록 6개 후보, BTC/ETH × 5m/15m | `REJECTED` | 6/6 pre-stress 실패. 가장 덜 나쁜 4h strict 후보도 discovery 최저 -4.19%, validation 최저 -2.10% / Sharpe -1.27. 비용 0에서도 ETH 양 timeframe 음수 | `docs/edge-search-2026-09-11.md`, `taker_divergence_*csv` |
 | 2026-09-11 | 같은 자산 Long/Short velocity / acceleration + OI/price state | 사전 등록 144개, BTC/ETH 1h | `REJECTED` | pre-pass 0/144. 양수 조합은 표본 부족·비용 민감성·연도별 반전. OI value 144개와 account-position disagreement 72행도 회복 실패 | `docs/edge-search-2026-09-11.md`, `ls_velocity_*csv` |
 | 2026-09-11 | BTC global positioning/OI shock → ETH cross-asset lead-lag | 사전 등록 2개 hold | `REJECTED` | pre-pass 0/2. 4h는 validation +10.75%였지만 discovery -0.38%, 2026 stress -1.21%. 비용 0 discovery +3.17%로 gross 반응은 있으나 평균 +0.129%/trade가 왕복 비용 약 0.14% 미만 | `docs/edge-search-2026-09-11.md`, `cross_asset_lead_lag_*csv` |
-| 2026-09-11 | BTC top-trader position velocity/OI shock → ETH cross-asset lead-lag | 연구 후보 | `NEXT` | global account와 다른 포지션 규모 series를 source로 사용. threshold/holding 재튜닝 없이 별도 사전 등록 필요 | `docs/edge-search-2026-09-11.md` |
+| 2026-09-11 | BTC top-trader position velocity/OI shock → ETH cross-asset lead-lag | 사전 등록 2개 hold | `REJECTED` | pre-pass 0/2. 1h discovery -13.07% / validation -19.22%, 4h discovery -7.70% / validation -22.15%, 2026 stress -19.66%. 비용 0에서도 4h discovery -1.96% / validation -13.88%라 gross 방향성도 약함 | `docs/edge-search-2026-09-11.md`, `top_trader_position_lead_lag_*csv` |
 | 2026-09-11 | Liquidation burst | 데이터 조사 | `BLOCKED-DATA` | Binance USD-M 역사 liquidationSnapshot이 2024-03-31 이후 끊겼고 forceOrder도 완전한 이벤트 테이프가 아님 | 같은 문서 |
 
 ## 다음 연구 순서
 
-1. `BTC top-trader position velocity/OI shock → ETH cross-asset lead-lag`를 별도 source 가설로 사전 등록합니다.
-2. BTC의 닫힌 1h metrics를 사용하고 ETH는 다음 봉부터만 거래해 시점 누수를 막습니다.
-3. global-ratio cross-asset과 같은 자산 Long/Short 가족의 threshold/lookback/holding 조정은 반복하지 않습니다.
-4. Liquidation은 완전한 historical event source를 확보하기 전까지 정식 백테스트를 시작하지 않습니다.
-5. 역사 데이터에서 살아남은 후보 하나만 사전 등록한 미래 shadow 구간으로 보냅니다.
+1. global-ratio와 top-trader-position cross-asset 가족의 threshold/lookback/holding 조정은 반복하지 않습니다.
+2. Liquidation은 완전한 historical event source를 확보하기 전까지 정식 백테스트를 시작하지 않습니다.
+3. 새로운 정식 후보는 기존 `REJECTED`와 다른 데이터 계약 또는 경제 메커니즘으로 사전 등록합니다.
+4. 역사 데이터에서 살아남은 후보 하나만 사전 등록한 미래 shadow 구간으로 보냅니다.
 
 ## 커밋 규칙
 
