@@ -76,6 +76,7 @@
 | 2026-09-11 | High-correlation gated momentum | 336h momentum + EMA400 + BTC/ETH 168h return corr >= 0.70, BTC/ETH × 1h/4h | `REJECTED` | discovery/validation 8/8 통과했지만 2026 stress에서 BTC1h -0.20%, ETH4h -0.03%. 비용 0 stress는 4/4 양수라 gross 효과는 있으나 현재 실행비용에서 margin 부족 | `docs/edge-search-2026-09-11.md`, `correlation_gated_momentum_*csv` |
 | 2026-09-11 | Liquidity-impact shock fade | `abs(log return)/(volume×close)` prior 720h q95 이상 → 반대 방향 hold4h, BTC/ETH × 1h/4h | `REJECTED` | 비용 포함 discovery/validation/2026 전 데이터셋 음수. 비용 0에서도 BTC/ETH 4h validation과 2026이 음수라 thin-liquidity fade 방향이 multi-regime에서 불안정 | `docs/edge-search-2026-09-11.md`, `liquidity_impact_fade_*csv` |
 | 2026-09-11 | Trend-efficiency gated momentum | 336h momentum + EMA400 + 168h log-price efficiency ratio >= 0.25, BTC/ETH × 1h/4h | `REJECTED` | BTC와 4h는 대체로 양수였지만 ETH1h discovery -4.45%, 비용 0도 -3.02%. 2026 1h 거래 수 1~2건으로 표본도 부족 | `docs/edge-search-2026-09-11.md`, `trend_efficiency_momentum_*csv` |
+| 2026-09-11 | Signed-volume confirmed momentum | 336h momentum + EMA400 + 168h signed-volume balance >= +0.10, BTC/ETH × 1h/4h | `REJECTED` | 7/8 discovery·validation 구간 양수, 2026 4/4 양수였지만 BTC4h discovery -0.19%. 비용 0에서는 +4.33%라 gross 방향성은 있으나 현재 실행비용에서 strict 기준 실패 | `docs/edge-search-2026-09-11.md`, `signed_volume_momentum_*csv` |
 | 2026-09-11 | Liquidation burst | 데이터 조사 | `BLOCKED-DATA` | Binance USD-M 역사 liquidationSnapshot이 2024-03-31 이후 끊겼고 forceOrder도 완전한 이벤트 테이프가 아님 | 같은 문서 |
 
 ## 다음 연구 순서

@@ -994,6 +994,52 @@ low-volatility filter는 변동성의 크기를 줄였지만 실패했습니다.
 - `artifacts/edge_search/trend_efficiency_momentum_shadow.csv`
 - 실행 모듈: `src/quant_lab/research/trend_efficiency_momentum.py`
 
+## Signed-volume confirmed momentum 사전 등록
+
+기존 volume breakout은 절대 거래량 증가와 가격 breakout을 결합했습니다. 이번 가설은 **상승 bar에 실린 volume과 하락 bar에 실린 volume의 누적 방향 균형**을 사용해 추세가 실제 참여 flow로 지지되는지 확인합니다. Binance taker ratio가 아니라 OHLCV 자체에서 재현 가능한 signed-volume proxy만 사용합니다.
+
+- universe: BTCUSDT, ETHUSDT
+- timeframe: 1h, 4h
+- base momentum: `close_t > close_{t-336h}`
+- trend gate: `close_t > EMA_400h`
+- signed volume: `volume_t × sign(log_return_t)`
+- volume balance window: 168시간
+- balance: `sum(signed_volume, 168h) / sum(volume, 168h)`
+- flow gate: balance `>= +0.10`
+- target: base momentum + trend gate + signed-volume gate가 모두 참이면 long, 아니면 cash
+- execution: 닫힌 signal bar 다음 bar open
+- 비용/리스크: fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-11, pre-stress 판정 뒤 진단
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 balance threshold/window 또는 기존 momentum 파라미터를 조정하지 않음
+
+실패하면 signed-volume balance threshold/window만 바꿔 같은 family를 반복하지 않습니다.
+
+### 실제 결과
+
+고정 규칙은 discovery/validation 8개 구간 중 7개가 양수였고 2026 stress도 네 데이터셋 모두 양수였지만, BTC 4시간 discovery가 -0.19%로 사전 기준을 통과하지 못했습니다.
+
+| 데이터셋 | Discovery | Validation | 2026 Stress | Validation 거래 수 |
+| --- | ---: | ---: | ---: | ---: |
+| BTC 1h | +3.58% | +1.87% | +0.10% | 142 |
+| ETH 1h | +3.03% | +14.78% | +3.82% | 126 |
+| BTC 4h | -0.19% | +7.97% | +0.58% | 92 |
+| ETH 4h | +2.18% | +24.14% | +1.28% | 70 |
+
+비용 0에서는 BTC4h discovery도 +4.33%로 회복돼 discovery/validation/2026 전 데이터셋이 양수였습니다. 즉 signed-volume confirmation의 gross 방향성은 비교적 일관되지만, 현재 fee/slippage/volatility-slippage 계약에서는 BTC4h discovery의 margin이 부족했습니다.
+
+**`Signed-volume confirmed momentum`은 REJECTED입니다.** balance threshold/window 또는 기존 momentum 파라미터를 조정해 같은 family를 다시 탐색하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/signed_volume_momentum_pre_stress.csv`
+- `artifacts/edge_search/signed_volume_momentum_stress_2026.csv`
+- `artifacts/edge_search/signed_volume_momentum_zero_cost.csv`
+- `artifacts/edge_search/signed_volume_momentum_shadow.csv`
+- 실행 모듈: `src/quant_lab/research/signed_volume_momentum.py`
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>
