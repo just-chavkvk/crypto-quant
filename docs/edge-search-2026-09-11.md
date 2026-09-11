@@ -8,6 +8,8 @@ Taker-flow absorption, 같은 자산의 Long/Short 변화속도·가속도 + OI/
 
 top-trader position source는 비용을 제거해도 discovery와 validation이 모두 음수여서 global-ratio 실험보다 더 약했습니다. BTC/ETH 상대가치 wave 8개와 funding settlement 상대가치 wave 4개도 전부 pre-pass에 실패했습니다. 같은 source에서 threshold/lookback/holding만 바꾼 재시험은 하지 않습니다.
 
+추가 탐색에서는 OI-turnover confirmed momentum과 premium-stability confirmed momentum도 탈락했습니다. 반면 기존 두 SHADOW의 frozen rule을 그대로 AND한 **dual-confirmed momentum**은 discovery/validation 8개 구간과 2026 stress 4개 데이터셋을 모두 양수로 통과해 세 번째 `SHADOW` 후보가 됐습니다. 최종 증거는 2026-09-11 08:00 UTC 이후 새 데이터만 사용합니다.
+
 ## 이미 수행된 미시구조 실험
 
 `artifacts/edge_search/microstructure_4h_screen.csv` 기준:
@@ -621,7 +623,7 @@ crowding/flow/funding 계열과 다른 cross-sectional momentum 메커니즘을 
 
 ### Future shadow runner 운영 시작
 
-두 `SHADOW` 후보를 같은 규칙으로 누적 관찰하기 위해 공통 runner를 추가했습니다. 과거 구현처럼 shadow 구간만 잘라서 신호를 새로 계산하면 336h momentum, EMA 400h, position cap 2160h warm-up이 끊길 수 있으므로, runner는 **전체 과거 history로 신호를 만든 뒤 shadow 시작 직전 1개 bar를 실행 context로 유지하고 성과만 2026-09-11 이후로 측정**합니다.
+`SHADOW` 후보를 같은 규칙으로 누적 관찰하기 위해 공통 runner를 사용합니다. 과거 구현처럼 shadow 구간만 잘라서 신호를 새로 계산하면 336h momentum, EMA 400h, position cap 2160h warm-up이 끊길 수 있으므로, runner는 **전체 과거 history로 신호를 만든 뒤 shadow 시작 직전 1개 bar를 실행 context로 유지하고 성과만 각 사전 등록 shadow 시작 이후로 측정**합니다.
 
 실행 명령:
 
@@ -638,6 +640,7 @@ uv run python -m quant_lab.research.shadow_status --root artifacts/edge_search -
 - `artifacts/edge_search/shadow_status.csv`
 - `artifacts/edge_search/position_cap_momentum_shadow.csv`
 - `artifacts/edge_search/breadth_momentum_shadow.csv`
+- `artifacts/edge_search/dual_confirmed_momentum_shadow.csv`
 
 `READY_FOR_PAPER_REVIEW`는 자동 `PROMOTED`가 아닙니다. 네 데이터셋이 모두 return > 0, Sharpe > 0, trades >= 10을 만족했을 때 paper 후보 검토가 가능하다는 상태만 표시하며, paper/live 주문은 계속 OFF입니다.
 
@@ -1128,6 +1131,47 @@ raw OI 수준이나 단순 volume spike를 다시 조정하지 않고, **현재 
 - `artifacts/edge_search/premium_stability_momentum_stress_2026.csv`
 - `artifacts/edge_search/premium_stability_momentum_zero_cost.csv`
 - 실행 모듈: `src/quant_lab/research/premium_stability_momentum.py`
+
+## Dual-confirmed momentum 사전 등록
+
+새 threshold를 추가하지 않고 현재 살아 있는 두 SHADOW 규칙을 그대로 결합합니다. **breadth-confirmed momentum과 global-position cap momentum이 동시에 long을 허용할 때만** 진입해, 시장 전체 상승 확인과 과도한 crowding 회피가 함께 있을 때 false positive가 줄어드는지 검증합니다.
+
+- component A: breadth-confirmed momentum의 고정 규칙 `336h momentum + EMA400 + BTC/ETH 둘 다 EMA400 위`
+- component B: global-position cap momentum의 고정 규칙 `336h momentum + EMA400 + global long/short ratio <= prior 2160h q90`
+- target: A와 B가 모두 long일 때만 long, 아니면 cash
+- universe: BTCUSDT, ETHUSDT
+- timeframe: 1h, 4h
+- execution: 닫힌 signal bar 다음 bar open
+- 비용/리스크: 두 기존 SHADOW와 동일하게 fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-11, pre-stress 판정 뒤 진단
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 조합 1개. q90, 2160h, 336h, EMA400 또는 breadth 정의를 결과를 보고 변경하지 않음
+
+역사 stress까지 통과해도 두 component와 마찬가지로 2026은 독립 holdout이 아니므로 즉시 승격하지 않습니다. 2026-09-11 08:00 UTC 이후 새 bar만 사용하는 future shadow에서 별도 관찰합니다.
+
+### 실제 결과와 SHADOW 판정
+
+고정 조합은 discovery/validation의 BTC/ETH × 1h/4h **8개 구간을 모두 통과**했고, 2026 stress도 네 데이터셋 모두 비용 포함 수익과 Sharpe가 양수였습니다.
+
+| 데이터셋 | Discovery | Validation | Validation Sharpe | 2026 Stress | 2026 Sharpe | 2026 거래 수 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| BTC 1h | +6.19% | +0.05% | +0.03 | +2.65% | +0.90 | 52 |
+| ETH 1h | +4.53% | +21.06% | +1.35 | +2.75% | +0.72 | 53 |
+| BTC 4h | +7.01% | +1.22% | +0.15 | +2.57% | +0.88 | 28 |
+| ETH 4h | +4.64% | +14.36% | +0.96 | +1.45% | +0.40 | 31 |
+
+BTC 1h validation은 +0.05%, Sharpe +0.03으로 margin이 얇지만 2026 stress에서는 +2.65%, Sharpe +0.90으로 양수를 유지했습니다. 이 결과는 새 독립 holdout이 아니라 이미 확인된 역사 데이터에 대한 composite 검증이므로 바로 paper 후보로 올리지는 않습니다.
+
+따라서 **`dual-confirmed momentum`을 세 번째 `SHADOW`로 등록합니다.** q90 / 2160h / 336h / EMA400 / breadth 정의를 모두 동결하고, 2026-09-11 08:00 UTC 이후 새 완성 bar에서 네 데이터셋 모두 누적 return > 0, Sharpe > 0, 거래 수 >= 10이 되기 전에는 paper 검토로 이동하지 않습니다. 현재 공통 최신 bar가 00:00 UTC라 운영 상태는 `WAITING_FOR_DATA`입니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/dual_confirmed_momentum_pre_stress.csv`
+- `artifacts/edge_search/dual_confirmed_momentum_stress_2026.csv`
+- `artifacts/edge_search/dual_confirmed_momentum_shadow.csv`
+- 실행 모듈: `src/quant_lab/research/dual_confirmed_momentum.py`
 
 ## 참고 자료
 
