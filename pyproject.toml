@@ -5,8 +5,10 @@ description = "Framework-agnostic crypto quant research lab"
 requires-python = ">=3.11"
 dependencies = [
   "ccxt>=4,<5",
+  "httpx2[brotli,http2,zstd]>=2.12.0",
   "numpy>=2.0",
   "pandas>=2.2",
+  "polars>=1,<2",
   "pyarrow>=17.0",
   "typer>=0.12",
 ]
