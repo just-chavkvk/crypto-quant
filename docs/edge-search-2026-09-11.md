@@ -352,6 +352,60 @@ global account ratio에서 보였던 일부 validation 양수 반응도 재현�
 - `artifacts/edge_search/top_trader_position_lead_lag_champion_yearly.csv`
 - 실행 모듈: `src/quant_lab/research/top_trader_position_lead_lag.py`
 
+## BTC/ETH 상대가치 Edge wave 사전 등록
+
+앞선 cross-asset 실험은 ETH 절대수익을 목표로 했기 때문에 BTC와 ETH가 같이 움직이는 시장 beta가 결과를 지배할 수 있었습니다. 이번 wave는 **다음 봉 open에서 ETH와 BTC를 50/50 dollar-neutral pair로 거래한 상대수익**을 목표로 바꿉니다. 결과를 보기 전에 아래 세 가족과 파라미터를 고정합니다.
+
+공통 계약:
+
+- 데이터: Binance USD-M BTCUSDT / ETHUSDT 1시간 futures + 같은 시점의 metrics/premium/taker 자료
+- feature time: 완전히 닫힌 1시간 bar만 사용
+- entry: 신호 다음 1시간 bar open에서 ETH/BTC 두 leg 동시 진입
+- exit: 1시간 또는 4시간 뒤 두 leg open에서 동시 청산
+- pair return: ETH leg 50% + BTC leg 50%의 dollar-neutral gross notional 기준
+- 비용: 각 leg 편도 fee 5 bps + slippage 2 bps, 두 leg 모두 반영
+- 겹치는 이벤트: 기존 pair 보유 중 새 이벤트 무시
+- discovery: 2023-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- 2026-01-01 ~ 2026-08-31: 가족별 pre-stress champion을 고른 뒤에만 stress history로 확인
+- pre-pass: discovery와 validation 모두 수익률 > 0, Sharpe > 0, 거래 수 >= 10
+- champion: pre-pass 우선, 이후 `validation Sharpe + 0.25 * validation return`; 동률이면 1시간 hold 우선
+- 비용 0 결과는 진단 전용이며 판정을 뒤집지 않음
+
+### 가족 A: BTC positioning shock → ETH/BTC catch-up
+
+- source variant 2개: global account ratio, top-trader position ratio
+- lookback: 4시간
+- velocity/acceleration z-score window: 현재 관측치를 제외한 직전 720시간
+- threshold: `|velocity_z| >= 2.0`, `|acceleration_z| >= 1.0`
+- state: velocity, acceleration, BTC 4시간 가격 변화가 같은 방향이고 BTC 계약 수 OI 4시간 변화는 반대 방향
+- pair 방향: BTC shock 방향으로 ETH가 뒤늦게 따라온다는 가설. bullish shock면 long ETH / short BTC, bearish shock면 short ETH / long BTC
+- hold: 1시간, 4시간
+- trial 수: 4
+
+### 가족 B: premium + OI 상대 혼잡도 fade
+
+- premium spread: `ETH premium_close - BTC premium_close`
+- premium z-score: 현재 관측치를 제외한 직전 720시간
+- threshold: `|premium_spread_z| >= 2.0`
+- OI confirmation: `log(ETH OI value_t / ETH OI value_{t-4h}) - log(BTC OI value_t / BTC OI value_{t-4h})`가 premium spread와 같은 방향
+- price confirmation: ETH/BTC 4시간 상대수익이 premium spread와 같은 방향
+- pair 방향: 더 비싸고 OI가 더 빠르게 쌓이며 상대가격도 같은 방향으로 간 leg를 fade
+- hold: 1시간, 4시간
+- trial 수: 2
+
+### 가족 C: taker 상대 chase fade
+
+- taker spread: `log(ETH taker_ratio) - log(BTC taker_ratio)`
+- taker spread z-score: 현재 관측치를 제외한 직전 720시간
+- threshold: `|taker_spread_z| >= 2.0`
+- confirmation: ETH/BTC 4시간 상대수익이 taker spread와 같은 방향
+- pair 방향: 공격적 taker flow와 상대가격이 동시에 한쪽으로 쏠린 leg를 fade
+- hold: 1시간, 4시간
+- trial 수: 2
+
+총 8개 trial만 실행합니다. 결과를 본 뒤 threshold/lookback/holding 또는 방향을 바꿔 같은 wave 안에서 재탐색하지 않습니다. 모두 실패하면 다음 wave는 source/target 또는 실행 메커니즘이 다른 가족으로 넘어갑니다.
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>
