@@ -730,6 +730,48 @@ premium, taker, funding 같은 파생 지표가 아니라 **가격 관계 자체
 - `artifacts/edge_search/price_lead_lag_shadow.csv`
 - 실행 모듈: `src/quant_lab/research/price_lead_lag.py`
 
+## Weekend move → Monday reversal 사전 등록
+
+기존 연구가 가격 추세, 파생시장 포지셔닝, funding/OI, premium, taker flow, cross-asset lead-lag에 집중했으므로 이번에는 **24/7 시장의 주말 유동성 차이**를 별도 calendar mechanism으로 검증합니다. 주말에 얇은 유동성에서 발생한 BTC/ETH 움직임 일부가 평일 유동성이 돌아오는 월요일에 되돌려진다는 가설입니다.
+
+- 데이터: Binance USD-M BTCUSDT / ETHUSDT futures OHLCV
+- timeframe: 1h와 4h를 같은 시간 계약으로 검증
+- signal bar: 월요일 00:00 UTC 직전 완전히 닫힌 bar (1h는 일요일 23:00, 4h는 일요일 20:00 시작 bar)
+- weekend return: signal bar close / 48시간 전 close - 1
+- 방향: weekend return > 0이면 short, < 0이면 long
+- entry: 월요일 00:00 UTC open
+- hold: 24시간 고정, 화요일 00:00 UTC open에서 종료
+- 비용/리스크: fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-11, pre-stress 판정 뒤 진단
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 reversal을 continuation으로 뒤집거나 weekend/hold 시간을 조정하지 않음
+
+실패하면 같은 calendar family에서 요일·진입시각·보유시간만 바꾸는 재탐색은 하지 않습니다.
+
+### 실제 결과
+
+고정 규칙은 discovery와 validation에서 BTC/ETH × 1h/4h **8개 구간 모두 손실**이었습니다.
+
+| 데이터셋 | Discovery | Discovery Sharpe | Validation | Validation Sharpe | 2026 Stress |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| BTC 1h | -16.55% | -1.99 | -15.95% | -1.87 | +3.31% |
+| ETH 1h | -13.40% | -1.32 | -7.74% | -0.61 | +1.68% |
+| BTC 4h | -15.42% | -1.76 | -17.68% | -2.14 | +3.24% |
+| ETH 4h | -14.65% | -1.37 | -8.15% | -0.65 | +1.28% |
+
+비용을 0으로 둬도 discovery는 -8.90%~-12.52%, validation은 -1.61%~-13.17%로 네 데이터셋 모두 음수였습니다. 따라서 비용 문제가 아니라 2022~2025에서 주말 움직임을 월요일에 fade하는 방향 자체가 안정적이지 않았습니다. 2026만 양수이므로 최근 regime 결과를 보고 규칙을 바꾸지 않습니다.
+
+**`Weekend move → Monday reversal`은 REJECTED입니다.** continuation으로 방향을 뒤집거나 요일·진입시각·hold를 조정해 같은 calendar family를 반복하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/weekend_reversal_pre_stress.csv`
+- `artifacts/edge_search/weekend_reversal_stress_2026.csv`
+- `artifacts/edge_search/weekend_reversal_zero_cost.csv`
+- 실행 모듈: `src/quant_lab/research/weekend_reversal.py`
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>
