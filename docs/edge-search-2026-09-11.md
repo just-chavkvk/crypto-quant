@@ -535,6 +535,28 @@ future shadow 규칙:
 - `artifacts/edge_search/position_cap_momentum_shadow.csv`
 - 실행 모듈: `src/quant_lab/research/position_cap_momentum.py`
 
+## BTC/ETH relative-strength rotation 사전 등록
+
+crowding/flow/funding 계열과 다른 cross-sectional momentum 메커니즘을 한 번만 검증합니다. 두 자산을 동시에 long/short하지 않고, 장기 상승 추세에 있는 자산 중 최근 7일 상대강도가 더 높은 하나로 자본을 이동합니다.
+
+- universe: BTCUSDT, ETHUSDT perpetual futures
+- 데이터: 1h와 4h 공식 futures/microstructure OHLCV
+- relative momentum: 현재 close / 168시간 전 close - 1
+- absolute trend gate: 현재 close > EMA 400시간
+- 선택: trend gate를 통과한 자산 중 168h return이 더 높은 하나; 둘 다 gate 실패면 cash
+- rebalance: 하루 한 번 00:00 UTC open
+- signal time: 1h는 직전 23:00 bar가 완전히 닫힌 뒤, 4h는 직전 20:00 bar가 완전히 닫힌 뒤
+- execution: 다음 00:00 UTC open부터 새 target 적용
+- 비용: target 변경 때마다 각 매수/매도 leg에 fee 5 bps + slippage 2 bps
+- 같은 자산 유지 중에는 재진입 비용을 부과하지 않음
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-10, validation 결과 확인 후에만 열기
+- pre-pass: 1h와 4h 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, target 변경 횟수 >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 lookback/EMA/rebalance 주기를 바꾸지 않음
+
+이 규칙이 역사 stress까지 살아도 2026은 pristine holdout이 아니므로 바로 paper 후보로 승격하지 않고, 2026-09-11 이후 future shadow가 필요합니다.
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>
