@@ -1085,6 +1085,50 @@ raw OI 수준이나 단순 volume spike를 다시 조정하지 않고, **현재 
 - `artifacts/edge_search/turnover_momentum_shadow.csv`
 - 실행 모듈: `src/quant_lab/research/turnover_momentum.py`
 
+## Premium-stability confirmed momentum 사전 등록
+
+기존 premium fade와 premium 수준 필터는 방향·절대수준을 거래했습니다. 이번 가설은 premium의 부호나 높낮이를 사용하지 않고, **perpetual premium이 안정적인 레짐인지**만 momentum의 품질 gate로 사용합니다. premium이 빠르게 흔들리는 레버리지 재가격 구간보다 안정적인 basis 구간에서 장기 추세가 더 지속된다는 가설입니다.
+
+- universe: BTCUSDT, ETHUSDT
+- timeframe: 1h, 4h
+- base momentum: `close_t > close_{t-336h}`
+- trend gate: `close_t > EMA_400h`
+- recent premium instability: 직전 포함 24시간 `premium_close`의 rolling std
+- instability reference: 현재 recent premium std를 제외한 직전 2160시간 recent-std history의 median
+- regime gate: `recent_premium_std <= prior_2160h_median_std`
+- target: base momentum + trend gate + premium-stability gate가 모두 참이면 long, 아니면 cash
+- execution: 닫힌 signal bar 다음 bar open
+- 비용/리스크: fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-01, pre-stress 판정 뒤 진단. premium archive가 2026-08-31까지이므로 이후 날짜는 포함하지 않음
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 premium-vol window/history/threshold 또는 기존 momentum 파라미터를 조정하지 않음
+
+실패하면 premium 안정성 threshold/window만 바꿔 같은 family를 반복하지 않습니다. 통과할 경우에도 2026은 stress history이므로 live premium 입력을 별도로 검증한 future shadow 없이는 승격하지 않습니다.
+
+### 실제 결과
+
+고정 규칙은 discovery/validation의 BTC/ETH × 1h/4h **8개 구간이 모두 음수**여서 pre-pass에 실패했습니다.
+
+| 데이터셋 | Discovery | Validation | Validation Sharpe | 2026 Stress |
+| --- | ---: | ---: | ---: | ---: |
+| BTC 1h | -4.81% | -2.39% | -0.34 | -0.95% |
+| ETH 1h | -1.44% | -5.91% | -0.66 | +0.98% |
+| BTC 4h | -4.75% | -1.82% | -0.24 | -2.04% |
+| ETH 4h | -4.15% | -9.50% | -0.96 | +0.55% |
+
+비용 0에서도 BTC4h discovery -0.05%, ETH4h validation -3.14%, BTC4h 2026 -1.07%가 남았습니다. 따라서 premium 안정성 gate의 실패는 단순히 거래비용이 방향성을 지운 경우가 아니며, 여러 timeframe과 regime에서 공통으로 유지되는 gross Edge도 아닙니다.
+
+**`Premium-stability confirmed momentum`은 REJECTED입니다.** premium-vol window/history/threshold 또는 기존 momentum 파라미터를 바꿔 같은 family를 다시 탐색하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/premium_stability_momentum_pre_stress.csv`
+- `artifacts/edge_search/premium_stability_momentum_stress_2026.csv`
+- `artifacts/edge_search/premium_stability_momentum_zero_cost.csv`
+- 실행 모듈: `src/quant_lab/research/premium_stability_momentum.py`
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>
