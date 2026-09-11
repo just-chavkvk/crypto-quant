@@ -949,6 +949,51 @@ premium, taker, funding 같은 파생 지표가 아니라 **가격 관계 자체
 - `artifacts/edge_search/liquidity_impact_fade_zero_cost.csv`
 - 실행 모듈: `src/quant_lab/research/liquidity_impact_fade.py`
 
+## Trend-efficiency gated momentum 사전 등록
+
+low-volatility filter는 변동성의 크기를 줄였지만 실패했습니다. 이번 가설은 변동성 크기 대신 **가격 경로가 얼마나 한 방향으로 효율적으로 이동했는지**를 봅니다. 같은 336h 상승이라도 168시간 동안 순이동이 총 왕복 이동의 큰 비중을 차지하면 추세가 덜 choppy하고 다음 구간 지속성이 높다는 가설입니다.
+
+- universe: BTCUSDT, ETHUSDT
+- timeframe: 1h, 4h
+- base momentum: `close_t > close_{t-336h}`
+- trend gate: `close_t > EMA_400h`
+- efficiency window: 168시간
+- efficiency ratio: `abs(log(close_t) - log(close_{t-168h})) / sum(abs(1-bar log return), 168h)`
+- quality gate: efficiency ratio `>= 0.25`
+- target: base momentum + trend gate + efficiency gate가 모두 참이면 long, 아니면 cash
+- execution: 닫힌 signal bar 다음 bar open
+- 비용/리스크: fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-11, pre-stress 판정 뒤 진단
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 efficiency window/threshold 또는 기존 momentum 파라미터를 조정하지 않음
+
+실패하면 efficiency threshold/window만 바꿔 같은 path-quality family를 반복하지 않습니다.
+
+### 실제 결과
+
+고정 규칙은 BTC와 4시간 데이터에서는 대체로 양수였지만 ETH 1시간 discovery에서 실패했습니다.
+
+| 데이터셋 | Discovery | Validation | 2026 Stress | Validation 거래 수 |
+| --- | ---: | ---: | ---: | ---: |
+| BTC 1h | +1.76% | +1.42% | +2.57% | 43 |
+| ETH 1h | -4.45% | +2.32% | +3.35% | 36 |
+| BTC 4h | +6.07% | +1.25% | +0.17% | 65 |
+| ETH 4h | +8.69% | +17.22% | +2.01% | 51 |
+
+비용 0에서도 ETH1h discovery가 -3.02%로 남아 실행비용만의 문제는 아니었습니다. 2026 stress는 네 데이터셋 모두 양수였지만 BTC1h 2건, ETH1h 1건뿐이라 recent regime 결과를 독립 Edge 증거로 사용할 수 없습니다.
+
+**`Trend-efficiency gated momentum`은 REJECTED입니다.** efficiency window/threshold 또는 기존 momentum 파라미터를 바꿔 같은 path-quality family를 다시 탐색하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/trend_efficiency_momentum_pre_stress.csv`
+- `artifacts/edge_search/trend_efficiency_momentum_stress_2026.csv`
+- `artifacts/edge_search/trend_efficiency_momentum_zero_cost.csv`
+- `artifacts/edge_search/trend_efficiency_momentum_shadow.csv`
+- 실행 모듈: `src/quant_lab/research/trend_efficiency_momentum.py`
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>
