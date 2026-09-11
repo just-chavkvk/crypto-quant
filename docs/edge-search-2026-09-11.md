@@ -577,6 +577,26 @@ crowding/flow/funding 계열과 다른 cross-sectional momentum 메커니즘을 
 - `artifacts/edge_search/relative_strength_rotation_shadow.csv`
 - 실행 모듈: `src/quant_lab/research/relative_strength_rotation.py`
 
+## BTC/ETH breadth-confirmed momentum 사전 등록
+
+기존 momentum의 parameter를 다시 탐색하지 않고, 시장 전체가 같은 상승 regime인지 확인하는 cross-asset breadth gate만 추가합니다. 한 자산만 강한 국면보다 BTC와 ETH가 동시에 장기 추세 위에 있을 때 추세 지속성이 높다는 가설입니다.
+
+- universe: BTCUSDT, ETHUSDT
+- timeframe: 1h, 4h
+- own momentum: `close_t > close_{t-336h}`
+- own trend: `close_t > EMA_400h`
+- breadth gate: 같은 timeframe에서 **BTC와 ETH 둘 다** 각자의 EMA 400h 위
+- target: 각 자산은 own momentum + own trend + breadth gate가 모두 참일 때만 long, 아니면 cash
+- execution: 닫힌 signal bar 다음 bar open
+- 비용/리스크: fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-10, pre-stress 판정 뒤에만 확인
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 lookback/EMA/breadth 정의를 바꾸지 않음
+
+역사 stress까지 살아도 2026은 이미 stress history이므로 최종 승격은 2026-09-11 이후 future shadow에서만 가능합니다.
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>
