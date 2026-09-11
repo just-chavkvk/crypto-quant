@@ -83,6 +83,28 @@ Binance USD-M `liquidationSnapshot` 공개 아카이브는 2024-03-31 이후 업
 - 짧은 horizon은 기존 5 bps fee + 2 bps base slippage보다 실제 spread/impact에 더 민감하므로 break-even cost도 함께 계산합니다.
 - 역사 walk-forward 생존 후보도 최종 Edge로 부르지 않고, 사전 등록한 새로운 future shadow period를 통과해야 paper 후보로 승격합니다.
 
+## Taker-flow divergence 백테스트 사전 등록
+
+결과를 보기 전에 첫 정식 검증 규칙을 다음과 같이 고정합니다.
+
+- 데이터: Binance USD-M BTCUSDT / ETHUSDT 공식 futures kline
+- 시간봉: 5m, 15m
+- discovery: 2020-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- 2026: stress check 전용
+- flow imbalance: `2 * taker_buy_quote_volume / quote_volume - 1`
+- 표준화: 직전 24시간의 완전히 닫힌 bar만 사용한 mean/std; 현재 bar는 기준 통계에서 제외
+- 주 absorption 조건: `|flow_z| >= 2.0`이면서 같은 방향 price-return z-score가 `0.5` 이하
+- 민감도 조건: `|flow_z| >= 2.5`이면서 같은 방향 price-return z-score가 `0.0` 이하
+- 주 방향 가설: 공격적 flow를 받아낸 반대편 유동성이 이긴다고 보고 flow의 반대 방향으로 진입
+- 진입: 신호 bar 다음 bar open
+- 보유: 15m, 1h, 4h
+- 겹치는 이벤트: 기존 포지션 보유 중 새 이벤트는 무시
+- 비용: 기존 연구와 동일하게 fee 5 bps, base slippage 2 bps, volatility slippage multiplier 0.02
+- 리스크: 거래당 1%, stop loss 5%
+
+주 방향 가설이 실패하고 같은-flow 방향 수익률이 좋아 보여도 이번 결과에서 즉시 방향을 뒤집어 Edge로 승격하지 않습니다. 그 경우 별도 가설로 다시 사전 등록한 뒤 검증합니다.
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>
