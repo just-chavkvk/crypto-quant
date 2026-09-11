@@ -72,3 +72,21 @@ no post-result parameter tuning. Historical success is SHADOW only, prospective
 window [2026-09-12, 2026-12-12) UTC, rule and costs frozen. PASS requires the complete
 future window and positive net return/Sharpe with >=10 trades for both assets.
 Existing three SHADOW strategies and their tracking are unchanged.
+
+### Parsing conventions fixed before feature/return evaluation
+
+The first funding CSV schema sample has exchange timestamps a few milliseconds
+past the scheduled hour. Preserve the raw archive; associate a settlement with its
+scheduled hour only for offsets [0,1000]ms, failing outside that bound. Validate
+interval continuity after this association. Funding valuation uses the historical
+mark-price hourly open, a proxy for the exact millisecond mark. Quantile interpolation
+is linear. These conventions are fixed before generating participation signals.
+
+### Source repair recorded before returns
+
+Monthly markPriceKlines has whole-day holes: BTC 2022-07-31, 2022-10-02,
+2023-02-24, 2026-06-29; ETH the same except 2022-07-31. The official daily archive
+contains these dates. Permit SHA256-verified daily markPriceKlines for exactly those
+missing whole calendar days. Preserve both manifests and require the same complete
+calendar after concatenation; no interpolation, replacement of existing hours,
+threshold relaxation or outcome-driven selection. Fail if exact daily recovery fails.
