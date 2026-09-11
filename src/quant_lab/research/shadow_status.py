@@ -8,6 +8,7 @@ from typing import Final
 
 import pandas as pd
 
+from quant_lab.data.shadow_refresh import refresh_shadow_data
 from quant_lab.research.breadth_momentum import run_research as run_breadth_momentum
 from quant_lab.research.position_cap_momentum import (
     load_research_datasets,
@@ -97,8 +98,16 @@ def run_shadow_status(root: Path) -> pd.DataFrame:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate frozen strategies on forward shadow data")
     _ = parser.add_argument("--root", type=Path, default=Path("artifacts/edge_search"))
+    _ = parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="append complete Binance USD-M bars and positioning before evaluation",
+    )
     args = parser.parse_args()
     root: Path = args.root
+    if args.refresh:
+        for result in refresh_shadow_data(root):
+            print(result)
     status = run_shadow_status(root)
     print(status.to_string(index=False))
 
