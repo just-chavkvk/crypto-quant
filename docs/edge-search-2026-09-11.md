@@ -663,6 +663,28 @@ premium, taker, funding 같은 파생 지표가 아니라 **가격 관계 자체
 - `artifacts/edge_search/relative_shock_fade_shadow.csv`
 - 실행 모듈: `src/quant_lab/research/relative_shock_fade.py`
 
+## BTC price shock → lagging ETH continuation 사전 등록
+
+앞선 cross-asset 연구는 BTC positioning/OI 변화가 ETH에 전달되는지를 보거나, BTC/ETH 상대가격 이탈을 pair mean-reversion으로 거래했습니다. 이번 가설은 데이터 계약과 경제 메커니즘을 바꿔 **BTC 자체의 급격한 가격 정보충격이 같은 시간에 덜 반영된 ETH로 뒤늦게 전달되는지**만 검증합니다. relative-shock fade의 방향만 뒤집는 재시험이 되지 않도록 relative 24h z-score, correlation gate, pair 포지션은 사용하지 않습니다.
+
+- 데이터: Binance USD-M BTCUSDT / ETHUSDT 1시간 futures kline
+- BTC shock: 현재 1시간 log return의 z-score를 현재 관측치를 제외한 직전 720시간으로 계산
+- shock threshold: `|BTC return z| >= 2.0`
+- ETH underreaction: 같은 1시간 ETH return이 BTC와 같은 방향이고, 절대 크기가 BTC 절대 return의 `50% 이하`
+- 방향: BTC shock 방향으로 ETH 단일 leg 추종
+- signal time: BTC/ETH 해당 1시간 봉이 완전히 닫힌 뒤
+- entry: signal 다음 1시간 bar open
+- hold: 4시간 고정
+- 겹치는 이벤트: 포지션 보유 중 새 이벤트 무시
+- 비용: 편도 fee 5 bps + slippage 2 bps
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-10, pre-stress 판정 뒤 진단
+- pre-pass: discovery와 validation 모두 return > 0, Sharpe > 0, 거래 수 >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 z threshold, underreaction 비율, hold 또는 방향을 재조정하지 않음
+
+이 가설이 실패하면 같은 BTC 1h shock에 threshold/ratio/hold만 바꿔 반복하지 않습니다. 재검토는 더 짧은 실제 체결/호가 데이터처럼 정보전달 시점 계약 자체가 달라지거나 target universe가 달라질 때만 엽니다.
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>

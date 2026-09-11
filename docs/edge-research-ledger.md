@@ -69,6 +69,7 @@
 | 2026-09-11 | BTC/ETH relative-strength rotation | 168h relative momentum + EMA400, daily rebalance, 1h/4h | `REJECTED` | 1h/4h 모두 discovery 약 -4.5%~-4.9%. validation +14.5%, 2026 +34.7%로 최근 regime은 강했지만 multi-regime 사전 기준 실패 | `docs/edge-search-2026-09-11.md`, `relative_strength_rotation_*csv` |
 | 2026-09-11 | BTC/ETH breadth-confirmed momentum | 기존 336h/EMA400 momentum + 양 자산 EMA400 breadth, BTC/ETH × 1h/4h | `SHADOW` | discovery/validation 네 데이터셋 전부 통과, 2026 stress도 모두 양수. 다만 BTC1h 2026 +0.09% / Sharpe +0.05로 margin이 얇아 2026-09-11 이후 future shadow 필요 | `docs/edge-search-2026-09-11.md`, `breadth_momentum_*csv` |
 | 2026-09-11 | BTC/ETH high-correlation relative-shock fade | corr168h >= 0.70 + relative return 24h z>=2, hold24h | `REJECTED` | discovery -14.89%, validation -21.72%, 2026 -11.73%. 비용 0도 discovery -1.95%, validation -9.43%라 mean-reversion 방향 자체가 약함 | `docs/edge-search-2026-09-11.md`, `relative_shock_fade_*csv` |
+| 2026-09-11 | BTC price shock → lagging ETH continuation | BTC 1h return prior-720h z>=2 + ETH same-direction underreaction <=50%, hold4h | `NEXT` | positioning/premium/relative-shock와 다른 가격발견 lead-lag 메커니즘. 결과를 보기 전 고정 규칙 1개만 검증 | `docs/edge-search-2026-09-11.md` |
 | 2026-09-11 | Liquidation burst | 데이터 조사 | `BLOCKED-DATA` | Binance USD-M 역사 liquidationSnapshot이 2024-03-31 이후 끊겼고 forceOrder도 완전한 이벤트 테이프가 아님 | 같은 문서 |
 
 ## 다음 연구 순서
@@ -77,6 +78,7 @@
 2. relative-strength rotation은 동일 파라미터 재튜닝 없이 닫고, 다음 후보는 다른 경제 메커니즘에서 찾습니다.
 3. BTC/ETH breadth-confirmed momentum도 파라미터 동결 상태로 future shadow에서 관찰합니다.
 4. high-correlation relative-shock fade는 동일 family 재튜닝 없이 닫습니다.
+5. BTC price shock → lagging ETH continuation은 사전 등록한 고정 규칙 1개를 정식 검증합니다.
 2. global/top-position ETH outright, BTC/ETH relative-value, funding differential 가족의 threshold/lookback/holding 조정은 반복하지 않습니다.
 3. Liquidation은 완전한 historical event source를 확보하기 전까지 정식 백테스트를 시작하지 않습니다.
 4. 새로운 정식 후보는 기존 `REJECTED`와 다른 데이터 계약 또는 경제 메커니즘으로 사전 등록합니다.
