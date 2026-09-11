@@ -1185,3 +1185,143 @@ BTC 1h validation은 +0.05%, Sharpe +0.03으로 margin이 얇지만 2026 stress�
 - Bitcoin market fragmentation and order flow: <https://www.tandfonline.com/doi/full/10.1080/1350486X.2022.2080083>
 - 2026 BTC/ETH futures liquidity-state/order-flow study: <https://arxiv.org/pdf/2607.09230>
 - 2026 liquidation-cascade study: <https://arxiv.org/html/2608.03616>
+
+## Order-book 데이터 게이트와 participation-intensity 후속 검증
+
+이번 wave의 최종 결과는 **order-book `REJECTED` (사유 `BLOCKED-DATA`),
+participation-intensity `REJECTED`**입니다. 새 `PASS`/`SHADOW`는 없습니다.
+기존 3개 SHADOW의 파라미터와 추적 코드는 변경하지 않았습니다.
+
+### 사전등록과 시험 수
+
+- 호가: `docs/order-book-prereg-2026-09-11.md`, commit `6f812ad`,
+  2026-09-11 07:32:43 UTC. 데이터 기준과 조건부 1개 규칙을 수익률 확인 전에 고정.
+- 참여강도: `docs/participation-prereg-2026-09-11.md`, commit `dbb4e31`,
+  07:36:33 UTC. 파일 헤더의 수기 07:40 표기는 Git 시각으로 정정했으며 규칙 변경 없음.
+- 파싱·공식 일별 원본 복구 계약: commit `0376121`, 07:45:47 UTC,
+  participation 신호/수익률 계산 전 고정.
+- 호가 수익률 trial **0개**. 98개 파일 검사는 데이터 품질 표본이며 전략 trial이 아님.
+- 참여강도 파라미터 trial **1개**, BTC/ETH × 3기간의 primary 6행.
+  비용 0 진단 6행은 같은 거래 결정에 대한 파생 결과이며 새로운 후보가 아님.
+
+### Binance historical bookDepth 품질·기간
+
+공식 S3 목록 전체를 페이지 끝까지 읽었습니다. 범위는 2023-01-01~2026-09-10이며,
+2022년에 대한 호가 증거는 없습니다. BTC 1,346일 / ETH 1,347일이 존재합니다.
+기대 1,349일 대비 BTC는 2023-02-08, 2023-02-09, 2024-04-18이 없고,
+ETH는 2023-02-08, 2023-02-09가 없습니다. 양 자산의 최소 48시간 연속 공백이
+사전 고정한 최대 24시간 기준을 초과하므로 수익률 백테스트를 시작하지 않았습니다.
+
+매월 첫날 및 연도/기간 말일을 기계적으로 택한 98개 ZIP은 모두 공식 SHA256과
+일치했습니다. 다음 수치는 **표본**이며 전체 파일 내용의 완전성으로 외삽하지 않습니다.
+
+| 자산 | 표본 일수 | CSV 행 | timestamp 그룹 | 고정 계약상 무효 그룹 | 유효 시간 / 표본 시간 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| BTC | 49 | 1,430,300 | 138,043 | 24,935 | 877 / 1,176 |
+| ETH | 49 | 1,430,300 | 138,043 | 29,049 | 855 / 1,176 |
+
+합계 유효 시간은 1,732/2,352 = 73.64%입니다. 무효는 원본 손상을 뜻하지 않습니다.
+고정한 ±1~±5 열 구조 외 ±0.2 레벨이 추가된 파일도 있어 버전 변화로 거절된 그룹을
+포함합니다. 원본 level 집합을 `sample_quality.csv`에 함께 보존했습니다.
+이 자료는 percentage-band 누적 잔량이며 best bid/ask, 주문별 이벤트, 큐 위치를
+복원하는 데이터가 아닙니다. 품질 기준을 낮추거나 missing-day를 보간하지 않았습니다.
+
+**판정: REJECTED (데이터 계약 부적합 / BLOCKED-DATA).** 경제 메커니즘의 수익성이
+음수라고 판정한 것이 아닙니다. 연속된 원본과 버전별 스키마·관측 시점 계약을 확보해
+새 데이터 게이트를 사전등록할 때만 재검토합니다.
+
+### 참여강도 데이터와 고정 규칙
+
+공식 USD-M `klines`, `fundingRate`, `markPriceKlines` 월별 파일 342개와, 월별
+mark-price 누락 날짜를 복구한 공식 일별 파일 7개, **총 349개 SHA256 검증 파일**을
+사용했습니다. 복구는 이미 존재하는 공식 원본만 연결하며 기존 행 교체·보간은 없습니다.
+원시 archive 6,837,258 bytes, 자산당 41,640개의 연속된 1h 행입니다.
+기간은 2021-12-01 warm-up부터 2026-08-31까지입니다.
+
+- trade count/quote volume은 실제 USD-M kline 필드. 이름만으로 기존 cache를 선물로 가정하지 않음.
+- OHLC 양수·범위, 고유/연속 시각, 완성 bar, 체결 건수 정수, 유한 양수 거래량 검사.
+- 양 자산 모두 2024-10-28 20:00 UTC 한 시간만 체결 건수/거래량 0.
+  이 시간과 이후 720시간은 신호에서 제외. 2024 input 유효율 8,783/8,784 = 99.9886%.
+- 실제 funding sequence와 interval 연속성 검증. 원본 시각은 scheduled hour 대비 0~31ms.
+  사전 허용한 1초 이내 정렬만 적용하며 missing funding을 0으로 대체하지 않음.
+- 펀딩 notional은 해당 settlement의 mark-price hour open으로 평가. 정확한 millisecond
+  mark나 intrabar stop/funding 순서는 관측할 수 없어 사전 고정한 보수적 hourly convention 사용.
+
+고정 규칙: 이전 720시간 체결 건수 q95 이상 **AND** 평균 체결금액
+(`quote_volume/count`)이 이전 720시간 q25 이하일 때 현재 open→close 움직임의 반대로
+진입합니다. 이는 체결 크기 구성 가설이며 retail 투자자 식별 주장이 아닙니다.
+현재 시간을 rolling 기준에서 제외하고 다음 1h 시가 진입, 정확히 4시간 hold,
+5% stop, 진입 equity의 20% 고정 수량을 사용합니다. 추가 매수·레버리지·중복 거래 없음.
+편도 fee 5bp + slippage 2bp + 이전 완성 bar range/open ×0.02 및 실제 펀딩을 반영했습니다.
+
+### 실제 백테스트
+
+아래 수익률은 고정 20% 배분의 **계좌 수익률**입니다. Sharpe는 cash 시간을 포함한
+calendar-hour equity로 산출했으며 거래 표본 Sharpe가 아닙니다.
+
+| 자산 | 기간 | 순수익률 | Sharpe | 최대 낙폭 | 완료 거래 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| BTC | discovery 2022~2023 | -0.96% | -0.18 | -3.73% | 27 |
+| BTC | validation 2024~2025 | -1.54% | -0.52 | -2.59% | 31 |
+| BTC | stress 2026-01~08 | -5.31% | -2.34 | -6.13% | 47 |
+| ETH | discovery 2022~2023 | -7.34% | -1.23 | -9.15% | 34 |
+| ETH | validation 2024~2025 | -8.73% | -2.18 | -9.06% | 32 |
+| ETH | stress 2026-01~08 | -9.49% | -3.49 | -10.20% | 44 |
+
+6/6 primary 구간 모두 음수로 실패했습니다. 표본 부족만의 탈락도 아닙니다.
+수수료/슬리피지를 제거하고 펀딩을 유지해도 BTC validation -0.34%, stress -3.48%,
+ETH discovery -5.57%, validation -7.40%, stress -7.57%입니다.
+BTC discovery만 +0.40%였습니다. 비용을 낮추기만 하면 안정적인 Edge가 되는 구조가 아닙니다.
+비용 0과 primary의 진입/청산 시각·방향·stop 결정 일치를 검사했습니다.
+
+**판정: REJECTED, 파라미터 trial 1개 종료.** q95/q25/720h/4h와 방향을 사후 변경하지
+않습니다. 기존 volume/taker/OI family로 우회한 재튜닝도 하지 않습니다.
+
+### 기존 SHADOW 보존 및 운영 확인
+
+`position_cap_momentum`, `breadth_momentum`, `dual_confirmed_momentum`과
+`shadow_status`, `forward_shadow`, `shadow_refresh`, `binance_shadow_source`
+총 7개 파일이 작업 전 SHA256과 모두 동일합니다.
+기존 runner `uv run python -m quant_lab.research.shadow_status --root artifacts/edge_search --refresh`
+실제 실행이 성공했으며 BTC·ETH 1h 최신 완성 bar는 2026-09-11 06:00 UTC,
+1h/4h 공통 최신 bar는 00:00 UTC였습니다. position-cap/breadth는 TRACKING,
+dual-confirmed는 WAITING_FOR_DATA, 최소 거래 수 0입니다.
+새 SHADOW 등록·기존 시작 시각 변경·paper/live 연결은 없습니다.
+
+### 검증과 재현
+
+전체 pytest **139개 통과**, 변경 파일 basedpyright 오류/경고 0, ruff 통과,
+`uv build` wheel/sdist 성공. 실제 두 CLI 실행, `--help`, 잘못된 root 거절을 확인했습니다.
+원본 체크섬 변조 거절, header 없는 CSV 첫 행 보존, 호가 중복/누락/스키마/시점,
+참여강도 prefix 불변성과 720h gap warm-up, next-open/hold/stop/펀딩/비용 회귀 검증 포함.
+
+```bash
+uv run python -m quant_lab.research.book_depth_audit --refresh-inventory
+uv run python -m quant_lab.research.participation_study --download
+uv run python -m quant_lab.research.participation_study
+uv run pytest -q
+```
+
+근거 파일:
+
+- `artifacts/edge_search/order_book/{BTCUSDT,ETHUSDT}_inventory.json`
+- `artifacts/edge_search/order_book/{inventory_quality,missing_days,sample_quality}.csv`
+- `artifacts/edge_search/order_book/{sample_hourly.parquet,frozen_shadow_before.sha256,run.log}`
+- `artifacts/edge_search/participation/source_manifest.csv`, `input_quality_by_year.csv`
+- `artifacts/edge_search/participation/participation_results.csv`
+- `artifacts/edge_search/participation/*_{net,zero_cost}_{trades.csv,equity.parquet}`
+- `artifacts/edge_search/participation/*_monthly_mark_missing.csv`, `*_invalid_activity_hours.csv`
+
+공식 원본과 계약 참고:
+
+- https://github.com/binance/binance-public-data
+- https://data.binance.vision/?prefix=data/futures/um/daily/bookDepth/
+- https://data.binance.vision/?prefix=data/futures/um/monthly/klines/
+- https://data.binance.vision/?prefix=data/futures/um/monthly/fundingRate/
+- https://data.binance.vision/?prefix=data/futures/um/monthly/markPriceKlines/
+
+이번 wave는 여기서 닫습니다. 다음 후보는 신규 데이터 계약 또는 별도 경제 메커니즘을
+먼저 원장에 대조하고 사전등록해야 하며, 위 두 family의 파라미터 검색을 반복하지 않습니다.
+
+구현 commit: `8af9ef8c3fc6b1c364f82cb75014f7c069a8a07e`.
+기계 판독 결과와 주요 artifact SHA256은 `docs/edge-evidence-2026-09-11-participation.json`에 보존했습니다.

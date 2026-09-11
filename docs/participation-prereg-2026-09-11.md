@@ -1,6 +1,6 @@
 # Participation-intensity trial: fragmented activity exhaustion
 
-Registered 2026-09-11 07:40 UTC, before collecting or evaluating participation
+Registered 2026-09-11 07:36:33 UTC (commit `dbb4e31`), before collecting or evaluating participation
 features/returns. Order-book was disqualified by the inventory's consecutive missing
 2023-02-08 and 2023-02-09 daily files in both BTC and ETH (48h > registered 24h).
 Its 98 calendar-selected sample files are still being audited for the data record.
@@ -90,3 +90,8 @@ contains these dates. Permit SHA256-verified daily markPriceKlines for exactly t
 missing whole calendar days. Preserve both manifests and require the same complete
 calendar after concatenation; no interpolation, replacement of existing hours,
 threshold relaxation or outcome-driven selection. Fail if exact daily recovery fails.
+
+Registration timestamp correction: the original prose said 07:40 UTC. The Git commit
+time is 07:36:33 UTC; only that transcription is corrected. The original rule, trial
+count and thresholds remain exactly as committed, and the pre-return parsing/source
+repair supplement is separately timestamped by commit `0376121` at 07:45:47 UTC.
