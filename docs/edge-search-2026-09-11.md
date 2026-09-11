@@ -230,6 +230,38 @@ Binance USD-M `liquidationSnapshot` 공개 아카이브는 2024-03-31 이후 업
 
 다음 후보는 BTC의 global positioning velocity와 OI 감소 shock가 ETH의 다음 1h/4h 수익에 선행하는지 보는 cross-asset lead-lag입니다. BTC 신호가 닫힌 뒤 ETH 다음 봉에서만 진입하도록 시점을 고정하고, 이번 결과에서 상대적으로 나았던 4h velocity를 새 결과를 보기 전에 하나의 기준값으로 사전 등록하는 것이 적절합니다.
 
+## BTC positioning/OI shock → ETH cross-asset lead-lag 사전 등록
+
+같은 자산 Long/Short 가족의 결과를 보고 threshold를 다시 조정하지 않고, 정보가 BTC에서 ETH로 전달되는지 별도 가설로 검증합니다. 결과를 보기 전에 아래 규칙을 고정합니다.
+
+- source asset: BTCUSDT
+- target asset: ETHUSDT
+- source data: Binance USD-M BTCUSDT 5분 metrics의 매시간 `:55` snapshot + BTCUSDT 1시간 futures kline
+- target data: Binance USD-M ETHUSDT 1시간 futures kline
+- positioning source: global account long/short ratio만 사용
+- lookback: 4시간으로 고정
+- velocity: `log(global_ratio_t) - log(global_ratio_{t-4h})`
+- acceleration: `velocity_t - velocity_{t-4h}`
+- 표준화: 현재 관측치를 제외한 직전 720개 시간의 완전한 관측치만 사용
+- shock threshold: `|velocity_z| >= 2.0` 및 `|acceleration_z| >= 1.0`
+- BTC state: velocity와 acceleration, BTC 4시간 가격 변화가 같은 방향이고 계약 수 OI 4시간 변화는 반대 방향인 deleveraging/cover state
+- ETH 방향 가설: BTC positioning velocity 방향을 ETH가 뒤따른다
+- holding: 1시간과 4시간의 2개 사전 등록 trial
+- signal time: BTC의 해당 1시간 봉이 완전히 닫힌 뒤
+- entry: 다음 ETH 1시간 봉 open
+- exit: 진입 후 각각 1시간/4시간 뒤 ETH open
+- 보유 중 겹치는 이벤트는 무시
+- 결측 시계열은 forward-fill하지 않고 완전한 시간 grid에서 해당 feature를 결측 처리
+- 비용: 기존과 동일하게 편도 fee 5 bps + slippage 2 bps, 왕복 최소 약 14 bps
+- discovery: 2023-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- 2026-01-01 ~ 2026-08-31은 두 trial의 pre-stress 결과로 champion을 고른 뒤에만 stress history로 확인
+- pre-pass: discovery와 validation 모두 수익률 > 0, Sharpe > 0, 거래 수 >= 10
+- champion: pre-pass 우선, 이후 `validation Sharpe + 0.25 * validation return`; 동률이면 1시간 hold 우선
+- 비용 0 결과는 판정을 뒤집는 용도가 아니라 실행비용 민감도 진단으로만 사용
+
+이 가설이 실패하면 BTC global positioning/OI → ETH 전달을 같은 threshold나 holding만 바꿔 반복하지 않습니다. 재검토는 source series 변경, 다른 target asset, 또는 독립적인 새 미래 데이터처럼 정보 전달 메커니즘이 달라질 때만 엽니다.
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>
