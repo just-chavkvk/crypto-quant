@@ -597,6 +597,28 @@ crowding/flow/funding 계열과 다른 cross-sectional momentum 메커니즘을 
 
 역사 stress까지 살아도 2026은 이미 stress history이므로 최종 승격은 2026-09-11 이후 future shadow에서만 가능합니다.
 
+### 실제 결과와 SHADOW 판정
+
+고정 규칙 1개가 discovery와 validation에서 BTC/ETH × 1h/4h 네 데이터셋을 모두 통과했습니다.
+
+| 데이터셋 | Discovery | Validation | Validation Sharpe | 2026 Stress | 2026 Sharpe | 2026 거래 수 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| BTC 1h | +4.44% | +7.28% | +0.63 | +0.09% | +0.05 | 74 |
+| ETH 1h | +6.21% | +34.64% | +1.78 | +1.69% | +0.39 | 72 |
+| BTC 4h | +5.27% | +9.25% | +0.78 | +0.89% | +0.29 | 38 |
+| ETH 4h | +6.78% | +31.54% | +1.62 | +1.22% | +0.30 | 40 |
+
+2026 stress도 모두 양수지만 BTC 1h의 +0.09%, Sharpe +0.05는 여유가 매우 작습니다. 따라서 역사 생존은 확인했지만 실거래 후보로 부르기에는 아직 증거가 약합니다.
+
+**`BTC/ETH breadth-confirmed momentum`을 `SHADOW`로 이동합니다.** 파라미터를 그대로 동결하고 2026-09-11 이후 새 데이터에서 네 데이터셋 모두 누적 return > 0, Sharpe > 0, 거래 수 >= 10을 확인해야만 다음 단계로 갈 수 있습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/breadth_momentum_pre_stress.csv`
+- `artifacts/edge_search/breadth_momentum_stress_2026.csv`
+- `artifacts/edge_search/breadth_momentum_shadow.csv`
+- 실행 모듈: `src/quant_lab/research/breadth_momentum.py`
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>
