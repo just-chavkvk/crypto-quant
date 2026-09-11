@@ -642,6 +642,27 @@ premium, taker, funding 같은 파생 지표가 아니라 **가격 관계 자체
 
 통과하더라도 2026은 stress history이므로 future shadow 전에는 paper 후보로 승격하지 않습니다.
 
+### 실제 결과
+
+사전 등록한 고정 규칙 1개는 pre-pass에 실패했습니다.
+
+- discovery 2022~2023: **-14.89%, Sharpe -2.60, 101건**
+- validation 2024~2025: **-21.72%, Sharpe -2.61, 104건**
+- 2026 stress: **-11.73%, Sharpe -6.02, 35건**
+- 비용 0 진단: discovery **-1.95%**, validation **-9.43%**
+
+비용을 제거해도 validation이 명확히 음수라 실행비용 문제가 아니라 상대가격 shock를 fade하는 방향 자체가 안정적이지 않았습니다.
+
+**`BTC/ETH high-correlation relative-shock fade`는 REJECTED입니다.** correlation threshold, z-score threshold, lookback, hold 또는 방향만 바꿔 같은 가족을 다시 탐색하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/relative_shock_fade_pre_stress.csv`
+- `artifacts/edge_search/relative_shock_fade_stress_2026.csv`
+- `artifacts/edge_search/relative_shock_fade_zero_cost.csv`
+- `artifacts/edge_search/relative_shock_fade_shadow.csv`
+- 실행 모듈: `src/quant_lab/research/relative_shock_fade.py`
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>
