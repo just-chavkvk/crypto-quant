@@ -685,6 +685,29 @@ premium, taker, funding 같은 파생 지표가 아니라 **가격 관계 자체
 
 이 가설이 실패하면 같은 BTC 1h shock에 threshold/ratio/hold만 바꿔 반복하지 않습니다. 재검토는 더 짧은 실제 체결/호가 데이터처럼 정보전달 시점 계약 자체가 달라지거나 target universe가 달라질 때만 엽니다.
 
+### 실제 결과
+
+사전 등록한 고정 규칙 1개는 discovery에서는 양수였지만 validation에서 실패했습니다.
+
+- discovery 2022~2023: **+9.73%, Sharpe +3.96, 57건**
+- validation 2024~2025: **-4.96%, Sharpe -1.48, 55건**
+- 2026 stress: **-4.33%, Sharpe -17.55, 11건**
+- 비용 0 discovery: **+18.84%, Sharpe +6.92**
+- 비용 0 validation: **+2.66%, Sharpe +1.52**
+- 비용 0 2026 stress: **-2.84%, Sharpe -11.33**
+
+비용을 제거하면 2024~2025까지 gross lead-lag 방향은 약하게 남지만 validation의 평균 gross 거래 수익은 약 **+0.071% = +7.1bp/trade**입니다. 사전 등록한 fee 5bp + slippage 2bp를 양방향에 적용한 왕복 비용 약 14bp보다 작아서 거래 가능한 여유가 없습니다. 2026은 비용을 완전히 제거해도 음수여서 최근 구간에서는 가격발견 방향성 자체도 유지되지 않았습니다.
+
+**`BTC price shock → lagging ETH continuation`은 REJECTED입니다.** z threshold, ETH underreaction 비율, hold 또는 방향만 바꿔 같은 가족을 다시 탐색하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/price_lead_lag_pre_stress.csv`
+- `artifacts/edge_search/price_lead_lag_stress_2026.csv`
+- `artifacts/edge_search/price_lead_lag_zero_cost.csv`
+- `artifacts/edge_search/price_lead_lag_shadow.csv`
+- 실행 모듈: `src/quant_lab/research/price_lead_lag.py`
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>
