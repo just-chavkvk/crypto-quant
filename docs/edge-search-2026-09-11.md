@@ -514,6 +514,27 @@ future shadow 규칙:
 - 하나라도 누적 수익률 또는 Sharpe가 음수인 상태에서 충분한 표본이 쌓이면 `REJECTED`로 닫음
 - shadow 전에는 paper/live trading에 연결하지 않음
 
+### 재현 결과와 SHADOW 판정
+
+정식 모듈로 과거 일회성 스크립트를 재현했습니다. q90 / 2160h 규칙은 discovery, validation, 2026 stress에서 BTC/ETH × 1h/4h 네 데이터셋 모두 양수였습니다.
+
+| 데이터셋 | 2022~2023 Discovery | 2024~2025 Validation | Validation Sharpe | 2026 Stress | 2026 Sharpe | 2026 거래 수 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| BTC 1h | +8.20% | +4.22% | +0.40 | +2.04% | +0.68 | 47 |
+| ETH 1h | +5.41% | +14.79% | +0.91 | +4.11% | +1.03 | 45 |
+| BTC 4h | +9.39% | +5.87% | +0.54 | +2.22% | +0.74 | 26 |
+| ETH 4h | +5.26% | +11.54% | +0.74 | +2.57% | +0.65 | 28 |
+
+이 수치는 과거 pre-screen artifact와 동일한 규칙을 재현하며, 2026 q90 stress도 당시 기록한 값과 일치합니다. 그러나 q75/q90/q95와 2026 결과를 과거 탐색 과정에서 이미 확인했으므로 독립적인 holdout 증거는 아닙니다.
+
+따라서 **`global-position cap momentum q90 / 2160h`를 `SHADOW`로 이동합니다.** 현재 로컬 artifact에는 shadow 시작인 2026-09-11 이후 완성된 데이터가 없어 shadow 결과는 아직 0건입니다. 다음 새 데이터에서 파라미터를 동결한 채 누적 관찰합니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/position_cap_momentum_historical.csv`
+- `artifacts/edge_search/position_cap_momentum_shadow.csv`
+- 실행 모듈: `src/quant_lab/research/position_cap_momentum.py`
+
 ## 참고 자료
 
 - Binance public data: <https://github.com/binance/binance-public-data>
