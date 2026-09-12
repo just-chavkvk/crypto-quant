@@ -134,3 +134,30 @@ uv run python -m quant_lab.research.shadow_status --root artifacts/edge_search -
 
 구현 commit: `d826700c4cbe64485c8618e9c4fd9a5497a3adfd`, `8fe3cd84f729f50ca1db5904e5afb6fb229f1034`.
 기계 판독 판정·원본/결과 SHA256: `docs/edge-evidence-2026-09-12.json`.
+
+## 다른 원리의 Edge 조사와 Binance–Bybit 실측 검증
+
+`docs/nonmomentum-edge-research-2026-09-12.md`에 네 경제 메커니즘의 공식 자료,
+데이터 검증, 반론, 미확인 항목과 다음 순서를 정리했습니다.
+
+Binance–Bybit 같은 자산 펀딩 차이는 `docs/cross-exchange-prereg-2026-09-12.md`,
+commit `b6b65f0`로 월간 고정 규칙 1개를 사전등록한 뒤 실제 백테스트했습니다.
+두 거래소 지갑을 별도로 유지하며 무료 자금 이동이나 증거금 상계를 가정하지 않았습니다.
+원본 API 222페이지와 Binance ZIP 349개, 가격 격자·펀딩 정산·재요청 일치를 검증했습니다.
+
+| 자산 | 2022~2023 순수익 | 2024~2025 순수익 | 2026-01~08 순수익 | 판정 |
+| --- | ---: | ---: | ---: | --- |
+| BTC | -1.109% | -1.171% | -0.367% | REJECTED |
+| ETH | -1.098% | -1.021% | -0.449% | REJECTED |
+
+비용 0이면 여섯 구간이 모두 양수이나, 현재 비용 계약에서는 펀딩 차이 수입이 너무
+작습니다. 동일 holding/lookback/fee를 사후 조정하지 않습니다. 가격·funding·cost 합계는
+최종 NAV와 일치했고 거래 불가 경계 생략·담보 게이트 위반은 0건입니다.
+
+만기선물–perp는 원본/정산 데이터의 접근성을 확인해 NEXT로 올립니다. 정확한 정산 사건
+시각과 전체 계약·공통 데이터가 먼저 필요하며 금융 trial은 0회입니다. 옵션 VRP와
+예정된 토큰 언락은 데이터/시점 계약 부족으로 BLOCKED-DATA, 금융 trial 0회입니다.
+이 세 후보를 PASS 또는 SHADOW로 표시하지 않습니다.
+
+기존 SHADOW 3개의 7개 관련 source와 자동화 설정은 보존했습니다.
+새 코드 포함 전체 테스트 307개와 변경 파일 타입 검사·ruff·빌드가 통과했습니다.

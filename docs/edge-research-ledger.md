@@ -83,10 +83,13 @@
 | 2026-09-11 | Liquidation burst | 데이터 조사 | `BLOCKED-DATA` | Binance USD-M 역사 liquidationSnapshot이 2024-03-31 이후 끊겼고 forceOrder도 완전한 이벤트 테이프가 아님 | 같은 문서 |
 | 2026-09-11 | Order-book imbalance / displayed liquidity pressure | 전체 daily 목록 BTC 1,346일 / ETH 1,347일, SHA256 검증 표본 98개; 수익률 trial 0개 | `REJECTED` (사유 `BLOCKED-DATA`) | 양 자산 2023-02-08~09 최소 48h 공백으로 사전 최대24h 기준 실패. 표본 유효 시간 73.64%, 추가 percentage level 버전 변화도 존재. 경제 메커니즘 폐기 아님; 연속 원본과 버전별 시점 계약 확보 시 새 데이터 게이트부터 재검토 | `docs/order-book-prereg-2026-09-11.md`, `docs/edge-search-2026-09-11.md`, `order_book/{inventory_quality,sample_quality}.csv` |
 | 2026-09-11 | Trade count / average trade size fragmented-activity exhaustion fade | 사전등록 고정 1개, BTC/ETH 1h; q95 count + q25 average quote size / prior720h / hold4h | `REJECTED` | net 6/6 구간 음수. BTC discovery/validation/stress -0.96%/-1.54%/-5.31%; ETH -7.34%/-8.73%/-9.49%. 실제 펀딩 반영, 비용0도 ETH 전 구간 음수. 동일 count/size/hold/direction 튜닝 금지 | `docs/participation-prereg-2026-09-11.md`, `docs/edge-search-2026-09-11.md`, `participation/participation_results.csv` |
-
 | 2026-09-12 | Same-asset spot/perpetual monthly funding carry | 사전등록 고정 1개, 실제 금융 trial 0개 | `REJECTED` (사유 `BLOCKED-DATA`) | BTC/ETH spot 2023-03-24 13:00 UTC 원본 행 부재. 동일 수량 현물/선물 헤지와 펀딩 cashflow 가설의 수익성은 미검증. 완전한 공통 데이터 또는 시장 중단의 평가/매매 불가를 다루는 별도 사전계약 필요 | `docs/hedged-edges-prereg-2026-09-12.md`, `docs/edge-search-2026-09-12.md`, `carry/*_spot_missing_hours.csv` |
 | 2026-09-12 | Same-asset trade-price spot/perpetual dislocation convergence | basis>=50bp / hold24h 고정 1개 사전등록, 실제 금융 trial 0개 | `REJECTED` (사유 `BLOCKED-DATA`) | 위 공통 현물 데이터 게이트 실패. 기존 BTC/ETH premium fade와 다른 실물 헤지/두 시장 체결 계약이지만 수익률 검증을 강행하지 않음. threshold/hold 튜닝 금지 | 같은 사전등록/연구 노트/데이터 근거 |
 | 2026-09-12 | Funding-cycle pre-settlement short pressure | 07/15/23 UTC short → 다음 08/16/00 UTC 청산, 고정 1개, BTC/ETH 1h | `REJECTED` | net 6/6 및 연도 10/10 음수. BTC discovery/validation/stress -53.29%/-49.80%/-24.40%; ETH -55.59%/-51.12%/-23.49%. 비용0도 discovery/stress 양 자산 음수. 시간대/방향/hold/비용 사후 튜닝 금지 | `docs/presettlement-prereg-2026-09-12.md`, `docs/edge-search-2026-09-12.md`, `presettlement/presettlement_results.csv` |
+| 2026-09-12 | Binance–Bybit same-asset perpetual funding differential | prior7 complete days로 월간 방향 고정, 독립 지갑, 사전등록 1개; BTC/ETH 2022~2026 | `REJECTED` | 데이터 전 기간 통과. net 6/6 및 연도10/10 음수. BTC -1.109%/-1.171%/-0.367%, ETH -1.098%/-1.021%/-0.449%. 비용0은 전부 작은 양수이나 29bp 기본 왕복비용+변동슬리피지 미충당. lookback/hold/fee 사후튜닝 금지 | `docs/cross-exchange-prereg-2026-09-12.md`, `docs/nonmomentum-edge-research-2026-09-12.md`, `cross_exchange_research/cross_exchange_results.csv` |
+| 2026-09-12 | Dated linear futures versus same-asset perpetual calendar convergence | 경제/데이터 조사, Binance BTC/ETH 각24만기 심볼·표본ZIP10개·자산별18정산가격, 금융trial0 | `NEXT` | 현물 없이 별도 정산일이 있는 가격관계. 정산 API 날짜 라벨과 실제 정산/마지막 거래 시각, 계약사양 및 전기간 공통데이터 확정 후 1개 규칙 사전등록 | `docs/nonmomentum-edge-research-2026-09-12.md`, `cross_exchange_research/notes/dated_futures.md` |
+| 2026-09-12 | Delta-hedged cryptocurrency option variance risk premium | 원논문·Deribit DVOL/체결/상품API 조사, 금융trial0 | `BLOCKED-DATA` | DVOL−실현분산은 executable option PnL 아님. 동기화된 역사bid/ask·잔량·체인/Greeks·증거금/헤지비용 자료 필요. 단순옵션매도 수익성 미검증 | 같은 조사보고서, `cross_exchange_research/notes/options_variance.md` |
+| 2026-09-12 | Preannounced token vesting/unlock supply-pressure | ARB/OP 공식 일정·계약·공개시점 및 원논문 조사, 금융trial0 | `BLOCKED-DATA` | 예정·vested·released·추가제한없는유통·실제매도를 구분. 당시공개일정버전·상폐포함universe·실제거래가능성 미완성. 현재스프레드시트로 과거매도 추정 금지 | 같은 조사보고서, `cross_exchange_research/notes/unlock_supply.md` |
 
 ## 다음 연구 순서
 
@@ -102,13 +105,17 @@
 10. trade-count / average-trade-size exhaustion fade는 고정 1회 검증으로 닫습니다. q95/q25/720h/4h/방향 재튜닝 금지.
 11. 현물/선물 carry·dislocation은 공통 데이터 또는 시장 중단 평가 계약을 새로 검증하기 전 수익률 trial을 재개하지 않습니다.
 12. Funding-cycle pre-settlement short는 고정 clock/방향/holding 재튜닝 없이 닫습니다.
-13. 다음 새 정식 후보는 기존 `REJECTED`와 다른 데이터 계약 또는 경제 메커니즘으로 사전 등록합니다. 2026-09-12 wave 신규 PASS/SHADOW는 0개입니다.
+13. Binance–Bybit 월간 펀딩 차이는 고정1회 실측 결과로 닫습니다. fee/lookback/holding 사후 튜닝으로 되살리지 않습니다.
+14. 다음 우선순위는 만기선물–perp의 정산·계약/롤 이력과 전 기간 공통 데이터 검증입니다. 수익률 계산 전에 고정규칙1개를 등록합니다.
+15. 옵션 VRP와 토큰 unlock은 각각 역사실행자료 및 PIT 공급일정 계약을 확보하기 전 금융 trial을 시작하지 않습니다.
+16. 2026-09-12 이번 추가 조사에서도 신규 PASS/SHADOW는 0개입니다.
 
 ## Future shadow 운영 상태
 
 - 공통 실행: `uv run python -m quant_lab.research.shadow_status --root artifacts/edge_search --refresh`
 - 2026-09-11 이번 wave에서 기존 refresh runner 재실행 성공. BTC/ETH 1h 최신 완성 bar `06:00 UTC`, 공통 1h/4h 최신 완성 bar `00:00 UTC`. 기존 3개 전략과 추적 코드 총 7개 파일 SHA256 불변 확인.
 - 2026-09-12 refresh 성공: BTC/ETH 각각 1h 22개·4h 6개 추가. 1h 최신 `2026-09-12 04:00 UTC`, 공통 최신 `00:00 UTC`. 기존 7개 source SHA256 불변.
+- 2026-09-12 16:12 KST 독립 자동 작업 `3-shadow` 첫 refresh 성공 기록과 실제 CSV 갱신 확인. 지정 모델 `gpt-5.6-luna`, 매시10분 ACTIVE. BTC/ETH 1h 최신06:00 UTC, 7개 source 해시 불변.
 - global-position cap momentum: `TRACKING`, 4/4 데이터셋 평가 시작, 최소 거래 수 0
 - BTC/ETH breadth-confirmed momentum: `TRACKING`, 4/4 데이터셋 평가 시작, 최소 거래 수 0
 - dual-confirmed momentum: `TRACKING`, 4/4 데이터셋 평가 시작, shadow 시작 `2026-09-11 08:00 UTC` 불변, 최소 거래 수 0
