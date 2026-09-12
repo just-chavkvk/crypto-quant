@@ -124,3 +124,35 @@ A historical pass: SHADOW. Future carry window [2026-10-01,2027-10-01) UTC, requ
 better than -10%, no collateral breach. Future B window [2026-09-13,2027-09-13) UTC,
 >=10 trades per asset with the same return/risk gates. PASS only after the full
 predeclared future window completes. No paper/live promotion in this research run.
+
+## Pre-return contract clarification / data gate v2
+
+The initial exact-close-time gate stopped before any strategy return was calculated.
+Monthly, daily and REST cross-checks are recorded in
+`artifacts/edge_search/carry/spot_checks/cross_source_check.csv`. The anomalies are:
+2021-12-24 04:00 (BTC/ETH, shortened traded candles in UNUSED context) and
+2023-03-24 12:00 (BTC/ETH, zero trades/zero volume with constant OHLC).
+
+Keep all original timestamps and values. Never rewrite a shortened close time.
+Only the complete hourly evaluation calendar from 2022-01-01 is eligible for signals
+and trades; the 2021 anomalies cannot affect any entry, prior-cost candle or hold.
+Inside evaluated time, a shortened candle is accepted solely as a known UNAVAILABLE
+market hour if volume=count=0 and OHLC is constant. Such an hour cannot produce B's
+signal or either strategy's entry/exit. Passive existing holdings may retain the
+reported mark with the declared collateral risk gate; no synthetic fill occurs.
+Any other malformed evaluated bar still fails. This explicit market-availability
+contract supersedes v1's global exact-close-time rejection, before the first
+backtest; it is not a profitability-driven data repair or parameter relaxation.
+
+Read-only pre-return audit also fixes these accounting/measurement ambiguities:
+
+- B is a **trade-price basis signal with modeled fills**, not an observed executable
+  bid/ask arbitrage. Hourly trade close/open cannot prove simultaneous fillability.
+- `cash wallet` excludes unrealized futures PnL. NAV adds unrealized PnL exactly once;
+  margin equity includes it. Do not subtract a margin reservation from cash again.
+- Both leg PnLs use reference market prices. Adverse slippage and fees are charged
+  once in execution_cost; no additional subtraction of the same fill difference.
+- Yearly gates use natural-year segments of PRIMARY hourly equity, anchored to the
+  preceding hour's NAV, preserving PnL on B trades spanning December/January.
+  Separate flat-at-January replays are not the annual gate. All sign/risk thresholds
+  and family rules remain as originally registered.
