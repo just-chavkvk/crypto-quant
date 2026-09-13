@@ -1,0 +1,1327 @@
+# Derivatives microstructure Edge research — 2026-09-11
+
+Funding/OI의 단순 방향성 가설 다음에 무엇을 연구할지 조사하고, 현재 로컬 artifact에 남아 있는 미시구조 실험도 함께 복구해 정리했습니다.
+
+## 결론
+
+Taker-flow absorption, 같은 자산의 Long/Short 변화속도·가속도 + OI/가격 상태, BTC global positioning/OI shock → ETH lead-lag, BTC top-trader position velocity/OI shock → ETH lead-lag는 정식 검증에서 모두 탈락했습니다. Liquidation burst는 신뢰할 수 있는 역사 데이터가 없어 계속 보류합니다.
+
+top-trader position source는 비용을 제거해도 discovery와 validation이 모두 음수여서 global-ratio 실험보다 더 약했습니다. BTC/ETH 상대가치 wave 8개와 funding settlement 상대가치 wave 4개도 전부 pre-pass에 실패했습니다. 같은 source에서 threshold/lookback/holding만 바꾼 재시험은 하지 않습니다.
+
+추가 탐색에서는 OI-turnover confirmed momentum과 premium-stability confirmed momentum도 탈락했습니다. 반면 기존 두 SHADOW의 frozen rule을 그대로 AND한 **dual-confirmed momentum**은 discovery/validation 8개 구간과 2026 stress 4개 데이터셋을 모두 양수로 통과해 세 번째 `SHADOW` 후보가 됐습니다. 최종 증거는 2026-09-11 08:00 UTC 이후 새 데이터만 사용합니다.
+
+## 이미 수행된 미시구조 실험
+
+`artifacts/edge_search/microstructure_4h_screen.csv` 기준:
+
+| 가족 | 시험 수 | strict pre-4h 통과 | 판정 |
+| --- | ---: | ---: | --- |
+| taker continuation | 16 | 0 | REJECTED |
+| taker rebound | 16 | 0 | REJECTED |
+| position crowd fade | 24 | 0 | REJECTED |
+| position divergence follow | 8 | 0 | REJECTED |
+| premium fade | 16 | 0 | REJECTED |
+| premium-filtered momentum | 6 | 0 | REJECTED |
+| position-filtered momentum | 6 | 6 | PRE-SCREEN only |
+| taker-filtered momentum | 6 | 2 | PRE-SCREEN only |
+
+`microstructure_momentum_filters_pre_stress.csv`에서는 position cap 6/18, taker floor 1/10, top-vs-global 2/6이 사전 기준을 통과했고 taker+position combo는 0/18이었습니다. 이 결과는 최종 Edge 승격이 아니라 후속 가설을 좁히는 용도로만 사용합니다.
+
+## 1. Taker-flow shock × price divergence / absorption
+
+Binance USD-M futures kline에는 전체 volume과 taker-buy base/quote volume이 포함되어 있으므로 과거 데이터를 제3자 공급자 없이 재구성할 수 있습니다.
+
+기본 예시는 다음처럼 닫힌 봉에서 계산합니다.
+
+```text
+taker_sell_quote = quote_volume - taker_buy_quote_volume
+signed_flow = taker_buy_quote_volume - taker_sell_quote
+flow_imbalance = signed_flow / quote_volume
+```
+
+새 가설은 “매수가 많으면 오른다”가 아니라 **공격적 주문량에 비해 가격이 얼마나 덜/더 반응했는지**입니다.
+
+- 극단적 sell flow인데 하락 반응이 약함: sell absorption 후보
+- 극단적 buy flow인데 상승 반응이 약함: buy absorption 후보
+- 극단적 flow와 가격, OI가 같은 방향으로 움직임: toxic-flow continuation 후보
+
+5m/15m feature를 완전히 닫은 뒤 다음 bar부터만 거래하고, 15m/1h/4h forward return을 먼저 event study로 확인합니다. 같은 봉의 종가를 진입가로 사용하지 않습니다.
+
+## 2. Long/Short 변화속도
+
+Global account ratio, top-trader account ratio, top-trader position ratio는 서로 다른 모집단/가중치를 측정합니다. 절대 수준을 다시 contrarian 신호로 쓰지 않고 다음처럼 변화 자체를 봅니다.
+
+```text
+x_t = log(long_short_ratio_t)
+velocity = x_t - x_{t-k}
+acceleration = velocity_t - velocity_{t-k}
+```
+
+rolling mean/std/quantile은 현재 관측치를 제외한 과거 데이터만 사용합니다. 주요 후보는 다음입니다.
+
+- positioning velocity와 가격, OI 증가가 같은 방향일 때 추세 지속
+- 가격과 positioning이 급변하면서 OI가 감소할 때 deleveraging 이후 continuation/rebound 비교
+- top-trader account와 position ratio의 변화가 반대로 갈 때 disagreement state
+- BTC positioning 급변이 ETH에 선행하는지 cross-asset 전이
+
+Binance Data Vision의 5분 metrics는 사용할 수 있지만 결측/중복과 실제 이용 가능 시점을 검증해야 합니다. bar timestamp와 데이터가 실제로 관측 가능한 `available_at`을 같은 것으로 가정하지 않습니다.
+
+## 3. Liquidation burst 보류 이유
+
+Binance USD-M `liquidationSnapshot` 공개 아카이브는 2024-03-31 이후 업데이트가 끊겼다는 공개 이슈가 있고, 2025-01-01 BTCUSDT 파일 직접 확인에서도 metrics/5m kline은 HTTP 200이지만 USD-M liquidationSnapshot은 HTTP 404였습니다.
+
+실시간 `forceOrder` stream도 짧은 시간에 발생한 모든 청산을 완전한 이벤트 테이프로 보장하지 않으므로, 이를 이용해 과거 `count`나 `sum(notional)`을 실제 총청산량처럼 백테스트하지 않습니다. 신뢰할 수 있는 complete-event source를 확보할 때 다시 엽니다.
+
+## 검증 규칙
+
+- 2026은 이미 여러 번 확인했으므로 pristine holdout이 아니라 stress history입니다.
+- 모든 feature는 닫힌 source bar만 사용하고 진입은 다음 bar 이후입니다.
+- metrics 결측을 미래값으로 선형 보간하지 않습니다.
+- threshold/lookback/holding period를 바꿀 때마다 trial ledger에 포함합니다.
+- 짧은 horizon은 기존 5 bps fee + 2 bps base slippage보다 실제 spread/impact에 더 민감하므로 break-even cost도 함께 계산합니다.
+- 역사 walk-forward 생존 후보도 최종 Edge로 부르지 않고, 사전 등록한 새로운 future shadow period를 통과해야 paper 후보로 승격합니다.
+
+## Taker-flow divergence 백테스트 사전 등록
+
+결과를 보기 전에 첫 정식 검증 규칙을 다음과 같이 고정합니다.
+
+- 데이터: Binance USD-M BTCUSDT / ETHUSDT 공식 futures kline
+- 시간봉: 5m, 15m
+- discovery: 2020-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- 2026: stress check 전용
+- flow imbalance: `2 * taker_buy_quote_volume / quote_volume - 1`
+- 표준화: 직전 24시간의 완전히 닫힌 bar만 사용한 mean/std; 현재 bar는 기준 통계에서 제외
+- 주 absorption 조건: `|flow_z| >= 2.0`이면서 같은 방향 price-return z-score가 `0.5` 이하
+- 민감도 조건: `|flow_z| >= 2.5`이면서 같은 방향 price-return z-score가 `0.0` 이하
+- 주 방향 가설: 공격적 flow를 받아낸 반대편 유동성이 이긴다고 보고 flow의 반대 방향으로 진입
+- 진입: 신호 bar 다음 bar open
+- 보유: 15m, 1h, 4h
+- 겹치는 이벤트: 기존 포지션 보유 중 새 이벤트는 무시
+- 비용: 기존 연구와 동일하게 fee 5 bps, base slippage 2 bps, volatility slippage multiplier 0.02
+- 리스크: 거래당 1%, stop loss 5%
+
+주 방향 가설이 실패하고 같은-flow 방향 수익률이 좋아 보여도 이번 결과에서 즉시 방향을 뒤집어 Edge로 승격하지 않습니다. 그 경우 별도 가설로 다시 사전 등록한 뒤 검증합니다.
+
+## Taker-flow divergence 실제 백테스트 결과
+
+사전 등록한 규칙 그대로 공식 Binance USD-M 월별 futures kline을 내려받아 실행했습니다.
+
+- 데이터 범위: 2020-01-01 ~ 2026-08-31
+- 데이터셋: BTCUSDT / ETHUSDT × 5m / 15m
+- 누락 candle: 네 데이터셋 모두 0
+- 중복 timestamp: 네 데이터셋 모두 0
+- 2020~2021 월별 파일은 헤더가 없고 2022년 이후 파일은 헤더가 있으므로 두 형식을 구분해 결합
+- 후보 수: 주 조건 / strict 조건 × 15m / 1h / 4h 보유 = 6개
+- 2026 결과는 후보 선택에 사용하지 않고, 2020~2025 결과로 1개를 고른 뒤 stress check만 수행
+
+### 2020~2025 사전 판정
+
+| 후보 | Discovery 최저 수익 | Validation 최저 수익 | Validation 최저 Sharpe | Validation 최소 거래 수 | 판정 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| strict 2.5σ / response 0σ / 4h | -4.19% | -2.10% | -1.27 | 11 | FAIL |
+| strict 2.5σ / response 0σ / 1h | -1.80% | -3.00% | -2.73 | 11 | FAIL |
+| strict 2.5σ / response 0σ / 15m | -2.28% | -1.50% | -3.19 | 11 | FAIL |
+| primary 2σ / response 0.5σ / 4h | -55.22% | -26.82% | -3.45 | 576 | FAIL |
+| primary 2σ / response 0.5σ / 1h | -61.95% | -38.93% | -9.71 | 687 | FAIL |
+| primary 2σ / response 0.5σ / 15m | -66.98% | -45.83% | -21.04 | 738 | FAIL |
+
+사전 구간에서 한 후보도 엄격한 통과 기준을 만족하지 못했습니다. 결과를 보기 전에 정한 규칙에 따라 가장 덜 나쁜 `strict 2.5σ / response 0σ / 4h` 조합만 2026 stress 구간을 열었습니다.
+
+### 사전 1위 후보의 2024~2025 세부 결과
+
+| 데이터셋 | 수익 | Sharpe | 거래 수 |
+| --- | ---: | ---: | ---: |
+| BTCUSDT 5m | -0.44% | -0.32 | 23 |
+| BTCUSDT 15m | -0.01% | -0.00 | 11 |
+| ETHUSDT 5m | -1.51% | -0.68 | 45 |
+| ETHUSDT 15m | -2.10% | -1.27 | 20 |
+
+### 2026 stress check
+
+| 데이터셋 | 수익 | Sharpe | 거래 수 |
+| --- | ---: | ---: | ---: |
+| BTCUSDT 5m | -0.59% | -0.69 | 40 |
+| BTCUSDT 15m | -1.26% | -2.50 | 18 |
+| ETHUSDT 5m | -1.55% | -1.43 | 35 |
+| ETHUSDT 15m | -0.48% | -0.66 | 19 |
+
+### 비용 0 진단
+
+같은 사전 1위 후보의 2024~2025 구간에서 fee/slippage를 0으로 둔 진단도 수행했습니다. BTC 5m/15m은 각각 약 +0.24%, +0.34%였지만 ETH 5m/15m은 약 -0.17%, -1.47%였습니다. 즉 비용이 전부 사라져도 BTC/ETH에 공통으로 유지되는 방향성 Edge가 아니었습니다.
+
+### 판정
+
+**`Taker-flow shock × 가격 divergence/absorption → flow 반대 방향` 가설은 REJECTED입니다.**
+
+강한 공격 주문을 가격이 흡수하면 반대편 유동성이 이후에도 이긴다는 주가설은 discovery/validation에서 재현되지 않았고 2026 stress에서도 네 데이터셋 모두 손실이었습니다. 결과를 본 뒤 같은-flow 방향으로 뒤집어 성공으로 취급하지 않습니다. 같은-flow continuation을 다시 보려면 별도 가설로 사전 등록해야 합니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/taker_divergence_summary_pre_stress.csv`
+- `artifacts/edge_search/taker_divergence_details_pre_stress.csv`
+- `artifacts/edge_search/taker_divergence_champion_stress_2026.csv`
+- `artifacts/edge_search/taker_divergence_champion_validation_zero_cost.csv`
+
+## Long/Short velocity / acceleration 백테스트 사전 등록
+
+다음 연구는 절대 Long/Short ratio 수준을 신호로 쓰지 않고, ratio의 로그 변화속도와 가속도에 OI/가격 상태를 결합한다. 결과를 보기 전에 아래 범위와 판정 규칙을 고정한다.
+
+- 데이터: Binance USD-M `metrics` 5분 자료와 같은 거래소의 1시간 선물 kline
+- 대상: BTCUSDT / ETHUSDT
+- 1시간 metrics 관측값: 각 시간의 닫힌 시간봉에 해당하는 `:55` 5분 snapshot만 사용. `:55`가 없거나 필드가 비어 있으면 그 시간을 채우지 않고 제외
+- ratio series: global account ratio, top-trader account ratio, top-trader position ratio 및 세 series의 median velocity composite
+- feature: `x_t = log(ratio_t)`, `velocity_L = x_t - x_{t-L}`, `acceleration_L = velocity_L(t) - velocity_L(t-L)`
+- 표준화: 현재 관측치를 제외한 직전 720개 시간 관측치의 mean/std. 720개가 완전하지 않으면 해당 z-score를 사용하지 않음
+- OI 상태: `sum_open_interest` 계약 수의 `L`시간 로그 변화. OI value는 가격과 중복될 수 있어 주 신호에서 사용하지 않음
+- 가격 상태: 1시간 close의 `L`시간 로그 변화
+- lookback: `L ∈ {4h, 12h, 24h}`
+- velocity threshold: `|velocity_z| >= 2.0`
+- acceleration threshold: `|acceleration_z| >= 1.0`
+- holding: `H ∈ {4h, 12h, 24h}`
+- 후보 가족: velocity/acceleration 동방향 + price/OI 동방향 continuation, velocity/acceleration 동방향 + OI 반대방향 continuation, acceleration 반전 + price/OI 동방향 reversal, acceleration 반전 + OI 반대방향 reversal
+- source × family × lookback × holding으로 4 × 4 × 3 × 3 = 144개 조합을 사전 등록
+- 신호 계산은 현재 시간봉이 닫힌 뒤, 진입은 다음 1시간 봉 open, 청산은 진입 후 H시간 뒤 open
+- 보유 중 겹치는 이벤트는 무시
+- 비용: 왕복 fee 5 bps + base slippage 2 bps, 즉 거래당 최소 14 bps. 이 단계는 고정 보유 event/backtest이므로 stop/volume cap은 적용하지 않으며, 통과 후보만 기존 엔진의 risk/stop 계약으로 재검증
+- 탐색: 2023년, 검증: 2024~2025년, 2026년은 champion을 고른 뒤 stress 확인 전용
+- 사전 통과: BTC/ETH 양쪽에서 discovery 수익률 > 0, validation 수익률 > 0, validation Sharpe > 0, validation 거래 수 ≥ 10
+- 2026년 수익률은 후보 선택이나 방향 전환에 사용하지 않음
+
+세 series의 top-account velocity와 top-position velocity가 반대인 disagreement 이벤트는 별도 진단으로 기록하되, 본 144개 champion 선정에 섞지 않는다. 결측 metrics를 forward-fill하거나 gap을 lookback bar로 건너뛰지 않는다.
+
+## Long/Short velocity / acceleration 실제 결과
+
+사전 등록한 144개 조합을 BTCUSDT와 ETHUSDT에 적용했습니다. 결과 CSV는 144행이 모두 고유하며 4개 source × 4개 family × 3개 lookback × 3개 holding의 전체 조합을 포함합니다. 사전 통과 후보는 **0/144**였습니다.
+
+### 데이터 계약과 품질
+
+- 공식 Binance USD-M metrics의 `count_long_short_ratio`, `count_toptrader_long_short_ratio`, `sum_toptrader_long_short_ratio`와 계약 수 OI를 사용했습니다.
+- top-account와 top-position series는 2022년에 장기간 비어 있어 2023년을 discovery로 고정했습니다.
+- 1시간마다 `:55` snapshot만 사용했고, 누락된 시간이나 필드는 채우지 않았습니다.
+- 검증 artifact는 `ls_velocity_acceleration_summary_pre_stress.csv` 144행, `ls_velocity_acceleration_champions_stress_2026.csv` 8행, `ls_velocity_disagreement_diagnostic.csv` 72행입니다.
+
+### 가족별 결과
+
+| 가족 | 사전 최고 조합 | Discovery 최저 수익 | Validation 최저 수익 | Validation 최소 거래 | 판정 |
+| --- | --- | ---: | ---: | ---: | --- |
+| OI build continuation | top-account, 4h velocity, 4h hold | -4.49% | +2.34% | 6 | discovery 손실·표본 부족 |
+| OI cover continuation | median composite, 4h velocity, 4h hold | +0.68% | +4.38% | 8 | 최소 거래 수 미달 |
+| OI build reversal | 유효 champion 없음 | — | — | 0 | 이벤트 부족 |
+| OI cover reversal | 유효 champion 없음 | — | — | 0 | 이벤트 부족 |
+
+수익 부호 기준으로 discovery와 validation을 모두 통과한 조합은 `median composite / cover continuation / 4h lookback / 4h hold` 하나뿐이었습니다. 그러나 discovery 거래가 BTC 5건, ETH 1건이고 validation도 BTC 8건, ETH 10건이어서 사전 등록한 최소 표본 조건을 넘지 못했습니다. 2026 stress에서도 BTC -0.45%, ETH +0.54%로 방향이 갈렸고 각각 3건뿐이었습니다.
+
+최소 validation 거래 수 10건을 만족한 21개 조합 중 가장 가까운 후보는 `global ratio / cover continuation / 4h lookback / 12h hold`였습니다. Validation은 BTC +19.36%, ETH +3.91%였지만 discovery의 ETH가 -0.49%였습니다. 연도별로도 ETH는 2024 +8.70%에서 2025 -4.41%, 2026 -0.51%로 뒤집혔고 BTC도 2026 -2.11%였습니다. 여러 해에 유지되는 Edge로 볼 수 없습니다.
+
+### 비용과 OI 정의 민감도
+
+`global ratio / cover continuation / 4h lookback / 4h hold`는 현재 비용에서 discovery BTC +1.15%, ETH -0.02%, validation BTC +14.22%, ETH +1.79%였습니다. fee와 slippage를 0으로 두면 discovery BTC +4.61%, ETH +0.82%, validation BTC +16.79%, ETH +3.66%였습니다. gross 방향성은 보이지만 ETH discovery의 거래당 평균 gross 수익 약 0.137%가 가정한 최소 왕복 비용 0.14%보다 작아, 현재 실행 가정에서는 거래 가능한 Edge가 아닙니다.
+
+계약 수 OI를 명목가치 OI로 바꾼 별도 민감도 144개도 사전 통과 0개였습니다. 명목가치 OI의 가장 나은 충분표본 build 후보는 discovery BTC -7.99%, ETH -5.37%였고, cover 후보도 discovery BTC -8.40%, ETH -4.59%였습니다. 가격이 포함된 OI value로 바꿔도 결론은 회복되지 않았습니다.
+
+### Top-account와 top-position 불일치
+
+불일치 진단 72행도 승격할 후보가 없었습니다. `position-follow / 12h lookback / 4h hold`는 validation BTC +1.06%, ETH +0.51%였지만 discovery BTC -7.25%였고 validation 거래도 각각 3건과 4건뿐이었습니다. `account-follow / 12h lookback / 24h hold`도 validation은 양수였으나 discovery ETH -1.83%, validation 거래 3건씩에 그쳤습니다.
+
+### 판정
+
+**`같은 자산의 Long/Short velocity/acceleration + OI/price state` 가족은 REJECTED입니다.**
+
+현재 데이터·비용·실행 가정에서 144개 중 사전 통과가 없었고, 양수로 보이는 조합은 표본 부족·비용 민감성·연도별 방향 전환 중 하나 이상을 피하지 못했습니다. 같은 source와 같은 자산에서 threshold/lookback/holding만 바꿔 재시험하지 않습니다. 재검토하려면 cross-asset 전달, 더 낮은 실제 체결비용의 입증, 또는 새로운 미래 데이터처럼 메커니즘이나 실행 계약이 실질적으로 달라져야 합니다.
+
+다음 후보는 BTC의 global positioning velocity와 OI 감소 shock가 ETH의 다음 1h/4h 수익에 선행하는지 보는 cross-asset lead-lag입니다. BTC 신호가 닫힌 뒤 ETH 다음 봉에서만 진입하도록 시점을 고정하고, 이번 결과에서 상대적으로 나았던 4h velocity를 새 결과를 보기 전에 하나의 기준값으로 사전 등록하는 것이 적절합니다.
+
+## BTC positioning/OI shock → ETH cross-asset lead-lag 사전 등록
+
+같은 자산 Long/Short 가족의 결과를 보고 threshold를 다시 조정하지 않고, 정보가 BTC에서 ETH로 전달되는지 별도 가설로 검증합니다. 결과를 보기 전에 아래 규칙을 고정합니다.
+
+- source asset: BTCUSDT
+- target asset: ETHUSDT
+- source data: Binance USD-M BTCUSDT 5분 metrics의 매시간 `:55` snapshot + BTCUSDT 1시간 futures kline
+- target data: Binance USD-M ETHUSDT 1시간 futures kline
+- positioning source: global account long/short ratio만 사용
+- lookback: 4시간으로 고정
+- velocity: `log(global_ratio_t) - log(global_ratio_{t-4h})`
+- acceleration: `velocity_t - velocity_{t-4h}`
+- 표준화: 현재 관측치를 제외한 직전 720개 시간의 완전한 관측치만 사용
+- shock threshold: `|velocity_z| >= 2.0` 및 `|acceleration_z| >= 1.0`
+- BTC state: velocity와 acceleration, BTC 4시간 가격 변화가 같은 방향이고 계약 수 OI 4시간 변화는 반대 방향인 deleveraging/cover state
+- ETH 방향 가설: BTC positioning velocity 방향을 ETH가 뒤따른다
+- holding: 1시간과 4시간의 2개 사전 등록 trial
+- signal time: BTC의 해당 1시간 봉이 완전히 닫힌 뒤
+- entry: 다음 ETH 1시간 봉 open
+- exit: 진입 후 각각 1시간/4시간 뒤 ETH open
+- 보유 중 겹치는 이벤트는 무시
+- 결측 시계열은 forward-fill하지 않고 완전한 시간 grid에서 해당 feature를 결측 처리
+- 비용: 기존과 동일하게 편도 fee 5 bps + slippage 2 bps, 왕복 최소 약 14 bps
+- discovery: 2023-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- 2026-01-01 ~ 2026-08-31은 두 trial의 pre-stress 결과로 champion을 고른 뒤에만 stress history로 확인
+- pre-pass: discovery와 validation 모두 수익률 > 0, Sharpe > 0, 거래 수 >= 10
+- champion: pre-pass 우선, 이후 `validation Sharpe + 0.25 * validation return`; 동률이면 1시간 hold 우선
+- 비용 0 결과는 판정을 뒤집는 용도가 아니라 실행비용 민감도 진단으로만 사용
+
+이 가설이 실패하면 BTC global positioning/OI → ETH 전달을 같은 threshold나 holding만 바꿔 반복하지 않습니다. 재검토는 source series 변경, 다른 target asset, 또는 독립적인 새 미래 데이터처럼 정보 전달 메커니즘이 달라질 때만 엽니다.
+
+## BTC positioning/OI shock → ETH cross-asset lead-lag 실제 결과
+
+사전 등록한 1시간/4시간 hold 두 trial은 모두 pre-pass에 실패했습니다.
+
+| Hold | Discovery | Sharpe | 거래 수 | Validation | Sharpe | 거래 수 | 판정 |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 1h | -3.55% | -15.35 | 31 | -0.003% | +0.31 | 17 | discovery/validation 수익 실패 |
+| 4h | -0.38% | -0.58 | 25 | +10.75% | +17.90 | 16 | discovery 실패 |
+
+pre-stress score가 높은 4시간 hold를 champion으로 고른 뒤 2026 stress history를 열었습니다. 결과는 **-1.21%, Sharpe -6.95, 6건**이었습니다. 2024 +8.67%, 2025 +1.92%였던 양수 구간이 2026에는 다시 음수로 바뀌었습니다.
+
+### 비용 민감도
+
+4시간 champion에서 fee/slippage를 0으로 두면 discovery는 +3.17%, validation은 +13.25%였습니다. discovery 25건의 평균 gross 거래 수익은 약 +0.129%로, 사전 등록한 왕복 최소 비용 약 0.14%보다 작습니다. 따라서 gross 방향성은 있었지만 현재 실행비용을 포함한 거래 가능한 Edge로는 남지 않았습니다.
+
+### 판정
+
+**`BTC global positioning velocity + OI 감소 shock → ETH follow` 가설은 REJECTED입니다.**
+
+1시간 hold는 discovery와 validation 모두 수익이 없었고, 4시간 hold는 validation만 강했으며 discovery와 2026 stress에서 음수였습니다. 비용 0 진단은 underlying gross 반응을 보여주지만 사전 비용 계약을 넘지 못하므로 판정을 뒤집지 않습니다. 같은 global-ratio source에서 threshold나 holding만 조정한 재시험은 하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/cross_asset_lead_lag_pre_stress.csv`
+- `artifacts/edge_search/cross_asset_lead_lag_champion_stress_2026.csv`
+- `artifacts/edge_search/cross_asset_lead_lag_champion_zero_cost.csv`
+- `artifacts/edge_search/cross_asset_lead_lag_champion_yearly.csv`
+- 실행 모듈: `src/quant_lab/research/cross_asset_lead_lag.py`
+
+## BTC top-trader position velocity/OI shock → ETH cross-asset lead-lag 사전 등록
+
+global account ratio 결과를 본 뒤 threshold나 holding을 다시 조정하지 않고, Binance metrics의 별도 source인 top-trader position ratio로 같은 정보 전달 가설을 검증합니다. 결과를 열기 전에 아래 규칙을 고정합니다.
+
+- source asset: BTCUSDT
+- target asset: ETHUSDT
+- source data: Binance USD-M BTCUSDT 5분 metrics의 매시간 `:55` snapshot + BTCUSDT 1시간 futures kline
+- target data: Binance USD-M ETHUSDT 1시간 futures kline
+- positioning source: `sum_toptrader_long_short_ratio`만 사용
+- lookback: 4시간으로 고정
+- velocity: `log(top_position_ratio_t) - log(top_position_ratio_{t-4h})`
+- acceleration: `velocity_t - velocity_{t-4h}`
+- 표준화: 현재 관측치를 제외한 직전 720개 시간의 완전한 관측치만 사용
+- shock threshold: `|velocity_z| >= 2.0` 및 `|acceleration_z| >= 1.0`
+- BTC state: velocity와 acceleration, BTC 4시간 가격 변화가 같은 방향이고 계약 수 OI 4시간 변화는 반대 방향인 deleveraging/cover state
+- ETH 방향 가설: BTC top-trader position velocity 방향을 ETH가 뒤따른다
+- holding: 1시간과 4시간의 2개 trial
+- signal time: BTC의 해당 1시간 봉이 완전히 닫힌 뒤
+- entry: 다음 ETH 1시간 봉 open
+- exit: 진입 후 각각 1시간/4시간 뒤 ETH open
+- 보유 중 겹치는 이벤트는 무시
+- 결측 시계열은 forward-fill하지 않고 완전한 시간 grid에서 해당 feature를 결측 처리
+- 비용: 편도 fee 5 bps + slippage 2 bps
+- discovery: 2023-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- 2026-01-01 ~ 2026-08-31은 두 trial의 pre-stress 결과로 champion을 고른 뒤에만 stress history로 확인
+- pre-pass: discovery와 validation 모두 수익률 > 0, Sharpe > 0, 거래 수 >= 10
+- champion: pre-pass 우선, 이후 `validation Sharpe + 0.25 * validation return`; 동률이면 1시간 hold 우선
+- 비용 0 결과는 실행비용 민감도 진단으로만 사용하고 판정을 뒤집지 않음
+
+이 source도 실패하면 같은 top-trader position series에서 threshold/lookback/holding만 바꿔 재시험하지 않습니다. 재검토는 target asset, source series, 실행 가정, 또는 독립적인 미래 데이터처럼 정보 전달 메커니즘이 바뀔 때만 엽니다.
+
+## BTC top-trader position velocity/OI shock → ETH cross-asset lead-lag 실제 결과
+
+사전 등록한 1시간/4시간 hold 두 trial은 모두 discovery와 validation에서 손실이 나 pre-pass에 실패했습니다.
+
+| Hold | Discovery | Sharpe | 거래 수 | Validation | Sharpe | 거래 수 | 판정 |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 1h | -13.07% | -48.71 | 55 | -19.22% | -38.99 | 90 | discovery/validation 모두 실패 |
+| 4h | -7.70% | -7.63 | 43 | -22.15% | -6.32 | 72 | discovery/validation 모두 실패 |
+
+pre-stress score가 덜 나쁜 4시간 hold를 champion으로 고른 뒤 2026 stress history를 열었습니다. 결과는 **-19.66%, Sharpe -33.68, 26건**이었습니다. 연도별로도 2025년만 +4.29%였고 2023 -7.70%, 2024 -25.36%, 2026 -19.66%로 일관성이 없었습니다.
+
+### 비용 민감도
+
+4시간 champion에서 fee/slippage를 0으로 제거해도 discovery **-1.96%, Sharpe -1.69**, validation **-13.88%, Sharpe -3.54**였습니다. 따라서 이번 실패는 왕복 비용 때문에 양수 gross Edge가 사라진 경우가 아니라, 비용 전에도 source 방향성이 약한 경우입니다.
+
+### 판정
+
+**`BTC top-trader position velocity + OI 감소 shock → ETH follow` 가설은 REJECTED입니다.**
+
+global account ratio에서 보였던 일부 validation 양수 반응도 재현되지 않았고, top-trader position source는 discovery/validation/2026 stress에서 모두 음수였습니다. 같은 series에서 threshold/lookback/holding만 조정한 재시험은 하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/top_trader_position_lead_lag_pre_stress.csv`
+- `artifacts/edge_search/top_trader_position_lead_lag_champion_stress_2026.csv`
+- `artifacts/edge_search/top_trader_position_lead_lag_champion_zero_cost.csv`
+- `artifacts/edge_search/top_trader_position_lead_lag_champion_yearly.csv`
+- 실행 모듈: `src/quant_lab/research/top_trader_position_lead_lag.py`
+
+## BTC/ETH 상대가치 Edge wave 사전 등록
+
+앞선 cross-asset 실험은 ETH 절대수익을 목표로 했기 때문에 BTC와 ETH가 같이 움직이는 시장 beta가 결과를 지배할 수 있었습니다. 이번 wave는 **다음 봉 open에서 ETH와 BTC를 50/50 dollar-neutral pair로 거래한 상대수익**을 목표로 바꿉니다. 결과를 보기 전에 아래 세 가족과 파라미터를 고정합니다.
+
+공통 계약:
+
+- 데이터: Binance USD-M BTCUSDT / ETHUSDT 1시간 futures + 같은 시점의 metrics/premium/taker 자료
+- feature time: 완전히 닫힌 1시간 bar만 사용
+- entry: 신호 다음 1시간 bar open에서 ETH/BTC 두 leg 동시 진입
+- exit: 1시간 또는 4시간 뒤 두 leg open에서 동시 청산
+- pair return: ETH leg 50% + BTC leg 50%의 dollar-neutral gross notional 기준
+- 비용: 각 leg 편도 fee 5 bps + slippage 2 bps, 두 leg 모두 반영
+- 겹치는 이벤트: 기존 pair 보유 중 새 이벤트 무시
+- discovery: 2023-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- 2026-01-01 ~ 2026-08-31: 가족별 pre-stress champion을 고른 뒤에만 stress history로 확인
+- pre-pass: discovery와 validation 모두 수익률 > 0, Sharpe > 0, 거래 수 >= 10
+- champion: pre-pass 우선, 이후 `validation Sharpe + 0.25 * validation return`; 동률이면 1시간 hold 우선
+- 비용 0 결과는 진단 전용이며 판정을 뒤집지 않음
+
+### 가족 A: BTC positioning shock → ETH/BTC catch-up
+
+- source variant 2개: global account ratio, top-trader position ratio
+- lookback: 4시간
+- velocity/acceleration z-score window: 현재 관측치를 제외한 직전 720시간
+- threshold: `|velocity_z| >= 2.0`, `|acceleration_z| >= 1.0`
+- state: velocity, acceleration, BTC 4시간 가격 변화가 같은 방향이고 BTC 계약 수 OI 4시간 변화는 반대 방향
+- pair 방향: BTC shock 방향으로 ETH가 뒤늦게 따라온다는 가설. bullish shock면 long ETH / short BTC, bearish shock면 short ETH / long BTC
+- hold: 1시간, 4시간
+- trial 수: 4
+
+### 가족 B: premium + OI 상대 혼잡도 fade
+
+- premium spread: `ETH premium_close - BTC premium_close`
+- premium z-score: 현재 관측치를 제외한 직전 720시간
+- threshold: `|premium_spread_z| >= 2.0`
+- OI confirmation: `log(ETH OI value_t / ETH OI value_{t-4h}) - log(BTC OI value_t / BTC OI value_{t-4h})`가 premium spread와 같은 방향
+- price confirmation: ETH/BTC 4시간 상대수익이 premium spread와 같은 방향
+- pair 방향: 더 비싸고 OI가 더 빠르게 쌓이며 상대가격도 같은 방향으로 간 leg를 fade
+- hold: 1시간, 4시간
+- trial 수: 2
+
+### 가족 C: taker 상대 chase fade
+
+- taker spread: `log(ETH taker_ratio) - log(BTC taker_ratio)`
+- taker spread z-score: 현재 관측치를 제외한 직전 720시간
+- threshold: `|taker_spread_z| >= 2.0`
+- confirmation: ETH/BTC 4시간 상대수익이 taker spread와 같은 방향
+- pair 방향: 공격적 taker flow와 상대가격이 동시에 한쪽으로 쏠린 leg를 fade
+- hold: 1시간, 4시간
+- trial 수: 2
+
+총 8개 trial만 실행합니다. 결과를 본 뒤 threshold/lookback/holding 또는 방향을 바꿔 같은 wave 안에서 재탐색하지 않습니다. 모두 실패하면 다음 wave는 source/target 또는 실행 메커니즘이 다른 가족으로 넘어갑니다.
+
+## BTC/ETH 상대가치 Edge wave 실제 결과
+
+사전 등록한 8개 trial은 모두 pre-pass에 실패했습니다.
+
+| 가족 | Variant | Hold | Discovery | Validation | Validation Sharpe | Validation 거래 수 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| positioning catch-up | global | 1h | -6.57% | -2.15% | -59.98 | 17 |
+| positioning catch-up | global | 4h | -4.72% | -3.71% | -31.75 | 16 |
+| positioning catch-up | top-position | 1h | -9.49% | -15.73% | -67.07 | 109 |
+| positioning catch-up | top-position | 4h | -7.46% | -11.72% | -9.70 | 90 |
+| premium + OI crowding fade | premium/OI | 1h | -13.52% | -43.32% | -37.70 | 352 |
+| premium + OI crowding fade | premium/OI | 4h | -10.61% | -45.33% | -16.01 | 308 |
+| taker chase fade | taker | 1h | -21.37% | -45.79% | -72.02 | 423 |
+| taker chase fade | taker | 4h | -17.41% | -45.34% | -19.94 | 387 |
+
+가족별로 pre-stress score가 덜 나쁜 4시간 후보만 2026 stress history에 열었습니다. positioning catch-up은 -2.65%, premium/OI crowding fade는 -11.40%, taker chase fade는 -18.48%였습니다.
+
+비용 0 진단에서도 구조적 안정성은 없었습니다. positioning top-position 4h는 discovery -0.61%, validation +0.15%였고, premium/OI 4h는 discovery +3.26%에서 validation -15.82%로 반전했습니다. taker 4h도 discovery +2.61%에서 validation -5.99%로 반전했습니다. 따라서 세 가족 모두 거래비용만 낮추면 살아나는 형태가 아닙니다.
+
+**`BTC/ETH relative-value wave`는 REJECTED입니다.** 같은 세 가족에서 threshold/lookback/holding 또는 방향만 바꾼 재시험은 하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/relative_value_wave_pre_stress.csv`
+- `artifacts/edge_search/relative_value_wave_champions_stress_2026.csv`
+- `artifacts/edge_search/relative_value_wave_champions_zero_cost.csv`
+- `artifacts/edge_search/relative_value_wave_champions_yearly.csv`
+- 실행 모듈: `src/quant_lab/research/relative_value_wave.py`
+
+## Funding settlement 상대가치 wave 사전 등록
+
+hourly microstructure 신호와 다른 구조적 이벤트를 보기 위해 Binance perpetual funding settlement 직후의 BTC/ETH 상대가치 unwind를 검증합니다. BTC/ETH funding event는 2020-01부터 같은 timestamp에 7,333건 존재하며, 0/8/16 UTC에 정산됩니다. timestamp가 정각보다 수십 ms 늦는 이벤트가 있으므로 해당 시간을 신호 시각으로만 사용하고 **다음 1시간 bar open**에서 진입합니다.
+
+공통 계약:
+
+- source: BTCUSDT / ETHUSDT 실제 funding settlement rate
+- funding spread: `ETH funding_rate - BTC funding_rate`
+- 표준화: 현재 settlement를 제외한 직전 90개 공통 funding event의 mean/std
+- event threshold: `|funding_spread_z| >= 2.0`
+- pair 방향: raw funding spread가 양수면 ETH가 상대적으로 더 crowded long이라고 보고 short ETH / long BTC, 음수면 반대
+- entry: funding settlement가 관측된 시간의 다음 1시간 bar open
+- hold: 1시간, 4시간
+- exit: hold 종료 시 두 leg open에서 동시 청산
+- pair return: ETH/BTC 각 50% dollar-neutral gross notional
+- 비용: 각 leg 편도 fee 5 bps + slippage 2 bps
+- 4시간 hold까지만 사용해 다음 8시간 funding settlement를 포지션 보유 중 통과하지 않음
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- 2026-01-01 ~ 2026-08-31: pre-stress champion을 고른 뒤에만 stress history로 확인
+- pre-pass: discovery와 validation 모두 수익률 > 0, Sharpe > 0, 거래 수 >= 10
+- champion: pre-pass 우선, 이후 `validation Sharpe + 0.25 * validation return`; 동률이면 1시간 hold 우선
+- 비용 0 결과는 진단 전용
+
+두 variant를 사전 등록합니다.
+
+1. `funding_diff_fade`: funding spread extreme만 사용합니다.
+2. `funding_premium_confirmed_fade`: funding spread 방향과 같은 시점의 `ETH premium_close - BTC premium_close` 방향이 같을 때만 거래합니다.
+
+각 variant에 1h/4h hold를 적용해 총 4개 trial만 실행합니다. 결과를 본 뒤 z-threshold, rolling window, hold, 방향을 바꿔 같은 funding wave를 반복하지 않습니다.
+
+## Funding settlement 상대가치 wave 실제 결과
+
+사전 등록한 4개 trial은 모두 pre-pass에 실패했습니다.
+
+| Variant | Hold | Discovery | Validation | Validation Sharpe | Validation 거래 수 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| funding diff fade | 1h | -20.10% | -29.21% | -47.97 | 149 |
+| funding diff fade | 4h | -16.19% | -27.51% | -17.43 | 149 |
+| funding + premium confirm | 1h | -15.79% | -25.58% | -46.82 | 119 |
+| funding + premium confirm | 4h | -9.51% | -25.22% | -18.62 | 119 |
+
+pre-stress score가 가장 높은 pure funding 4시간 후보를 2026 stress에 열었고 결과는 **-7.86%, Sharpe -26.48, 48건**이었습니다. 비용 0에서는 discovery +3.11%였지만 validation -10.66%로 반전해, execution cost만 낮추면 살아나는 형태도 아니었습니다.
+
+연도별 champion 결과도 2022 -9.69%, 2023 -7.21%, 2024 -8.65%, 2025 -20.64%, 2026 -7.86%로 전 구간 음수였습니다.
+
+**`BTC/ETH funding settlement differential fade`는 REJECTED입니다.** 같은 funding spread에서 threshold/window/hold/방향만 바꾼 재시험은 하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/funding_relative_value_pre_stress.csv`
+- `artifacts/edge_search/funding_relative_value_champion_stress_2026.csv`
+- `artifacts/edge_search/funding_relative_value_champion_zero_cost.csv`
+- `artifacts/edge_search/funding_relative_value_champion_yearly.csv`
+- 실행 모듈: `src/quant_lab/research/funding_relative_value.py`
+
+## Global-position cap momentum 정식화
+
+초기 pre-screen artifact를 만든 당시 실행 세션을 복원해 정확한 규칙을 확인했습니다. 이 가족은 새로 threshold를 고르는 탐색이 아니라, 이미 관찰된 parameter plateau를 하나의 고정 규칙으로 정식화하는 단계입니다.
+
+- base momentum: `close_t > close_{t-336h}` 이고 `close_t > EMA_400h`
+- crowding source: Binance `count_long_short_ratio` (global account long/short ratio)
+- crowding history: 직전 2160시간
+- cap: 현재 값을 제외한 직전 2160시간의 90% quantile
+- filter: 현재 global ratio가 cap 이하일 때만 base momentum long 허용
+- timeframe: BTC/ETH × 1h/4h 모두 같은 시간 단위 규칙으로 환산
+- execution: 닫힌 bar에서 signal 계산, 기존 backtester가 다음 bar open에서 target 실행
+- 비용/리스크: fee 5 bps, slippage 2 bps, 거래당 risk 1%, stop 5%, volatility slippage multiplier 0.02
+
+q90은 사후 최고점 선택이 아니라 기존에 q75/q90/q95 세 값이 모두 2022~2025 pre-screen과 2026 stress를 통과한 plateau의 중앙값으로 고정합니다. 당시 이미 2026 결과를 확인했으므로 2026은 독립 holdout으로 재사용하지 않습니다. 정식 모듈은 과거 artifact를 **재현성 검증**하고, 최종 판정은 2026-09-11 이후 새 데이터만 사용하는 future shadow로 넘깁니다.
+
+future shadow 규칙:
+
+- shadow start: 2026-09-11 00:00 UTC 이후 새로 생기는 완전한 bar
+- q90 / 2160h / 336h / EMA 400h를 shadow 동안 변경하지 않음
+- BTC/ETH × 1h/4h 네 데이터셋 모두 누적 수익률 > 0, Sharpe > 0, 거래 수 >= 10이 될 때까지 `PROMOTED` 판정을 금지
+- 하나라도 누적 수익률 또는 Sharpe가 음수인 상태에서 충분한 표본이 쌓이면 `REJECTED`로 닫음
+- shadow 전에는 paper/live trading에 연결하지 않음
+
+### 재현 결과와 SHADOW 판정
+
+정식 모듈로 과거 일회성 스크립트를 재현했습니다. q90 / 2160h 규칙은 discovery, validation, 2026 stress에서 BTC/ETH × 1h/4h 네 데이터셋 모두 양수였습니다.
+
+| 데이터셋 | 2022~2023 Discovery | 2024~2025 Validation | Validation Sharpe | 2026 Stress | 2026 Sharpe | 2026 거래 수 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| BTC 1h | +8.20% | +4.22% | +0.40 | +2.04% | +0.68 | 47 |
+| ETH 1h | +5.41% | +14.79% | +0.91 | +4.11% | +1.03 | 45 |
+| BTC 4h | +9.39% | +5.87% | +0.54 | +2.22% | +0.74 | 26 |
+| ETH 4h | +5.26% | +11.54% | +0.74 | +2.57% | +0.65 | 28 |
+
+이 수치는 과거 pre-screen artifact와 동일한 규칙을 재현하며, 2026 q90 stress도 당시 기록한 값과 일치합니다. 그러나 q75/q90/q95와 2026 결과를 과거 탐색 과정에서 이미 확인했으므로 독립적인 holdout 증거는 아닙니다.
+
+따라서 **`global-position cap momentum q90 / 2160h`를 `SHADOW`로 이동합니다.** 현재 로컬 artifact에는 shadow 시작인 2026-09-11 이후 완성된 데이터가 없어 shadow 결과는 아직 0건입니다. 다음 새 데이터에서 파라미터를 동결한 채 누적 관찰합니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/position_cap_momentum_historical.csv`
+- `artifacts/edge_search/position_cap_momentum_shadow.csv`
+- 실행 모듈: `src/quant_lab/research/position_cap_momentum.py`
+
+## BTC/ETH relative-strength rotation 사전 등록
+
+crowding/flow/funding 계열과 다른 cross-sectional momentum 메커니즘을 한 번만 검증합니다. 두 자산을 동시에 long/short하지 않고, 장기 상승 추세에 있는 자산 중 최근 7일 상대강도가 더 높은 하나로 자본을 이동합니다.
+
+- universe: BTCUSDT, ETHUSDT perpetual futures
+- 데이터: 1h와 4h 공식 futures/microstructure OHLCV
+- relative momentum: 현재 close / 168시간 전 close - 1
+- absolute trend gate: 현재 close > EMA 400시간
+- 선택: trend gate를 통과한 자산 중 168h return이 더 높은 하나; 둘 다 gate 실패면 cash
+- rebalance: 하루 한 번 00:00 UTC open
+- signal time: 1h는 직전 23:00 bar가 완전히 닫힌 뒤, 4h는 직전 20:00 bar가 완전히 닫힌 뒤
+- execution: 다음 00:00 UTC open부터 새 target 적용
+- 비용: target 변경 때마다 각 매수/매도 leg에 fee 5 bps + slippage 2 bps
+- 같은 자산 유지 중에는 재진입 비용을 부과하지 않음
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-10, validation 결과 확인 후에만 열기
+- pre-pass: 1h와 4h 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, target 변경 횟수 >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 lookback/EMA/rebalance 주기를 바꾸지 않음
+
+이 규칙이 역사 stress까지 살아도 2026은 pristine holdout이 아니므로 바로 paper 후보로 승격하지 않고, 2026-09-11 이후 future shadow가 필요합니다.
+
+### 실제 결과
+
+고정 규칙 1개를 1h/4h 양쪽에서 실행했습니다. 두 timeframe은 거의 같은 결과를 냈지만 discovery에서 손실이 나 사전 기준을 통과하지 못했습니다.
+
+| Timeframe | Discovery 2022~2023 | Validation 2024~2025 | Validation Sharpe | 2026 Stress | 2026 Sharpe | Validation target 변경 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1h | -4.46% | +14.55% | +0.37 | +34.74% | +1.40 | 156 |
+| 4h | -4.89% | +14.54% | +0.37 | +34.73% | +1.41 | 156 |
+
+2024년 이후에는 매우 강했지만 2022~2023 discovery의 최대 drawdown이 약 -40%이고 누적 수익도 음수였습니다. 최근 regime에 특화된 전략 가능성은 있으나 사전 등록한 multi-regime 기준에서는 탈락입니다.
+
+**`BTC/ETH relative-strength rotation`은 REJECTED입니다.** 이번 결과를 보고 lookback, EMA, rebalance 시간 또는 cash gate를 재조정하지 않습니다. 다시 열려면 독립적인 regime-switching 가설처럼 메커니즘을 명시적으로 바꿔 별도 연구로 등록해야 합니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/relative_strength_rotation_pre_stress.csv`
+- `artifacts/edge_search/relative_strength_rotation_stress_2026.csv`
+- `artifacts/edge_search/relative_strength_rotation_shadow.csv`
+- 실행 모듈: `src/quant_lab/research/relative_strength_rotation.py`
+
+## BTC/ETH breadth-confirmed momentum 사전 등록
+
+기존 momentum의 parameter를 다시 탐색하지 않고, 시장 전체가 같은 상승 regime인지 확인하는 cross-asset breadth gate만 추가합니다. 한 자산만 강한 국면보다 BTC와 ETH가 동시에 장기 추세 위에 있을 때 추세 지속성이 높다는 가설입니다.
+
+- universe: BTCUSDT, ETHUSDT
+- timeframe: 1h, 4h
+- own momentum: `close_t > close_{t-336h}`
+- own trend: `close_t > EMA_400h`
+- breadth gate: 같은 timeframe에서 **BTC와 ETH 둘 다** 각자의 EMA 400h 위
+- target: 각 자산은 own momentum + own trend + breadth gate가 모두 참일 때만 long, 아니면 cash
+- execution: 닫힌 signal bar 다음 bar open
+- 비용/리스크: fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-10, pre-stress 판정 뒤에만 확인
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 lookback/EMA/breadth 정의를 바꾸지 않음
+
+역사 stress까지 살아도 2026은 이미 stress history이므로 최종 승격은 2026-09-11 이후 future shadow에서만 가능합니다.
+
+### 실제 결과와 SHADOW 판정
+
+고정 규칙 1개가 discovery와 validation에서 BTC/ETH × 1h/4h 네 데이터셋을 모두 통과했습니다.
+
+| 데이터셋 | Discovery | Validation | Validation Sharpe | 2026 Stress | 2026 Sharpe | 2026 거래 수 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| BTC 1h | +4.44% | +7.28% | +0.63 | +0.09% | +0.05 | 74 |
+| ETH 1h | +6.21% | +34.64% | +1.78 | +1.69% | +0.39 | 72 |
+| BTC 4h | +5.27% | +9.25% | +0.78 | +0.89% | +0.29 | 38 |
+| ETH 4h | +6.78% | +31.54% | +1.62 | +1.22% | +0.30 | 40 |
+
+2026 stress도 모두 양수지만 BTC 1h의 +0.09%, Sharpe +0.05는 여유가 매우 작습니다. 따라서 역사 생존은 확인했지만 실거래 후보로 부르기에는 아직 증거가 약합니다.
+
+**`BTC/ETH breadth-confirmed momentum`을 `SHADOW`로 이동합니다.** 파라미터를 그대로 동결하고 2026-09-11 이후 새 데이터에서 네 데이터셋 모두 누적 return > 0, Sharpe > 0, 거래 수 >= 10을 확인해야만 다음 단계로 갈 수 있습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/breadth_momentum_pre_stress.csv`
+- `artifacts/edge_search/breadth_momentum_stress_2026.csv`
+- `artifacts/edge_search/breadth_momentum_shadow.csv`
+- 실행 모듈: `src/quant_lab/research/breadth_momentum.py`
+
+### Future shadow runner 운영 시작
+
+`SHADOW` 후보를 같은 규칙으로 누적 관찰하기 위해 공통 runner를 사용합니다. 과거 구현처럼 shadow 구간만 잘라서 신호를 새로 계산하면 336h momentum, EMA 400h, position cap 2160h warm-up이 끊길 수 있으므로, runner는 **전체 과거 history로 신호를 만든 뒤 shadow 시작 직전 1개 bar를 실행 context로 유지하고 성과만 각 사전 등록 shadow 시작 이후로 측정**합니다.
+
+실행 명령:
+
+```bash
+uv run python -m quant_lab.research.shadow_status --root artifacts/edge_search --refresh
+```
+
+`--refresh`는 Binance USD-M 공개 데이터에서 완전히 닫힌 BTC/ETH 1h·4h futures OHLCV와 global account long/short ratio만 증분 갱신합니다. ratio endpoint의 timestamp는 period 종료 시각이므로 1h/4h를 각각 빼 기존 microstructure의 bar 시작 timestamp 계약에 맞춥니다. 기존 trailing ratio 결측도 함께 backfill합니다.
+
+2026-09-11 첫 실제 실행에서 BTC/ETH 각각 1h bar 24개, 4h bar 5개를 추가했고, ratio는 1h 29개/4h 7개를 채웠습니다. 갱신 뒤 공통 최신 완성 bar는 **2026-09-11 00:00 UTC**였고 두 후보 모두 네 데이터셋 평가가 시작되어 `TRACKING` 상태가 됐습니다. 현재 최소 거래 수는 0이며 네 데이터셋 모두 shadow return/Sharpe/trade 수가 0이라 승격 증거는 아직 없습니다.
+
+상태 파일:
+
+- `artifacts/edge_search/shadow_status.csv`
+- `artifacts/edge_search/position_cap_momentum_shadow.csv`
+- `artifacts/edge_search/breadth_momentum_shadow.csv`
+- `artifacts/edge_search/dual_confirmed_momentum_shadow.csv`
+
+`READY_FOR_PAPER_REVIEW`는 자동 `PROMOTED`가 아닙니다. 네 데이터셋이 모두 return > 0, Sharpe > 0, trades >= 10을 만족했을 때 paper 후보 검토가 가능하다는 상태만 표시하며, paper/live 주문은 계속 OFF입니다.
+
+## BTC/ETH high-correlation relative-shock fade 사전 등록
+
+premium, taker, funding 같은 파생 지표가 아니라 **가격 관계 자체의 일시적 이탈**을 검증합니다. BTC와 ETH가 최근 일주일 동안 높은 상관을 유지했는데 24시간 상대수익만 역사적으로 극단까지 벌어지면, 일시적 dislocation이 평균회귀한다는 가설입니다.
+
+- 데이터: BTCUSDT / ETHUSDT 1h perpetual futures
+- BTC/ETH hourly return correlation: 현재 bar를 제외한 직전 168시간
+- correlation gate: `corr >= 0.70`
+- relative shock: `log(ETH_close_t / ETH_close_{t-24h}) - log(BTC_close_t / BTC_close_{t-24h})`
+- shock z-score: 현재 관측치를 제외한 직전 720시간의 relative-shock mean/std
+- threshold: `|relative_shock_z| >= 2.0`
+- direction: ETH 상대수익이 양의 극단이면 short ETH / long BTC, 음의 극단이면 long ETH / short BTC
+- entry: signal 다음 1시간 bar open
+- hold: 24시간 고정
+- 겹치는 이벤트: 포지션 보유 중 새 이벤트 무시
+- 비용: 두 leg 모두 편도 fee 5 bps + slippage 2 bps
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-10, pre-stress 판정 후에만 확인
+- pre-pass: discovery와 validation 모두 return > 0, Sharpe > 0, trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 correlation/z/hold를 재조정하지 않음
+
+통과하더라도 2026은 stress history이므로 future shadow 전에는 paper 후보로 승격하지 않습니다.
+
+### 실제 결과
+
+사전 등록한 고정 규칙 1개는 pre-pass에 실패했습니다.
+
+- discovery 2022~2023: **-14.89%, Sharpe -2.60, 101건**
+- validation 2024~2025: **-21.72%, Sharpe -2.61, 104건**
+- 2026 stress: **-11.73%, Sharpe -6.02, 35건**
+- 비용 0 진단: discovery **-1.95%**, validation **-9.43%**
+
+비용을 제거해도 validation이 명확히 음수라 실행비용 문제가 아니라 상대가격 shock를 fade하는 방향 자체가 안정적이지 않았습니다.
+
+**`BTC/ETH high-correlation relative-shock fade`는 REJECTED입니다.** correlation threshold, z-score threshold, lookback, hold 또는 방향만 바꿔 같은 가족을 다시 탐색하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/relative_shock_fade_pre_stress.csv`
+- `artifacts/edge_search/relative_shock_fade_stress_2026.csv`
+- `artifacts/edge_search/relative_shock_fade_zero_cost.csv`
+- `artifacts/edge_search/relative_shock_fade_shadow.csv`
+- 실행 모듈: `src/quant_lab/research/relative_shock_fade.py`
+
+## BTC price shock → lagging ETH continuation 사전 등록
+
+앞선 cross-asset 연구는 BTC positioning/OI 변화가 ETH에 전달되는지를 보거나, BTC/ETH 상대가격 이탈을 pair mean-reversion으로 거래했습니다. 이번 가설은 데이터 계약과 경제 메커니즘을 바꿔 **BTC 자체의 급격한 가격 정보충격이 같은 시간에 덜 반영된 ETH로 뒤늦게 전달되는지**만 검증합니다. relative-shock fade의 방향만 뒤집는 재시험이 되지 않도록 relative 24h z-score, correlation gate, pair 포지션은 사용하지 않습니다.
+
+- 데이터: Binance USD-M BTCUSDT / ETHUSDT 1시간 futures kline
+- BTC shock: 현재 1시간 log return의 z-score를 현재 관측치를 제외한 직전 720시간으로 계산
+- shock threshold: `|BTC return z| >= 2.0`
+- ETH underreaction: 같은 1시간 ETH return이 BTC와 같은 방향이고, 절대 크기가 BTC 절대 return의 `50% 이하`
+- 방향: BTC shock 방향으로 ETH 단일 leg 추종
+- signal time: BTC/ETH 해당 1시간 봉이 완전히 닫힌 뒤
+- entry: signal 다음 1시간 bar open
+- hold: 4시간 고정
+- 겹치는 이벤트: 포지션 보유 중 새 이벤트 무시
+- 비용: 편도 fee 5 bps + slippage 2 bps
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-10, pre-stress 판정 뒤 진단
+- pre-pass: discovery와 validation 모두 return > 0, Sharpe > 0, 거래 수 >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 z threshold, underreaction 비율, hold 또는 방향을 재조정하지 않음
+
+이 가설이 실패하면 같은 BTC 1h shock에 threshold/ratio/hold만 바꿔 반복하지 않습니다. 재검토는 더 짧은 실제 체결/호가 데이터처럼 정보전달 시점 계약 자체가 달라지거나 target universe가 달라질 때만 엽니다.
+
+### 실제 결과
+
+사전 등록한 고정 규칙 1개는 discovery에서는 양수였지만 validation에서 실패했습니다.
+
+- discovery 2022~2023: **+9.73%, Sharpe +3.96, 57건**
+- validation 2024~2025: **-4.96%, Sharpe -1.48, 55건**
+- 2026 stress: **-4.33%, Sharpe -17.55, 11건**
+- 비용 0 discovery: **+18.84%, Sharpe +6.92**
+- 비용 0 validation: **+2.66%, Sharpe +1.52**
+- 비용 0 2026 stress: **-2.84%, Sharpe -11.33**
+
+비용을 제거하면 2024~2025까지 gross lead-lag 방향은 약하게 남지만 validation의 평균 gross 거래 수익은 약 **+0.071% = +7.1bp/trade**입니다. 사전 등록한 fee 5bp + slippage 2bp를 양방향에 적용한 왕복 비용 약 14bp보다 작아서 거래 가능한 여유가 없습니다. 2026은 비용을 완전히 제거해도 음수여서 최근 구간에서는 가격발견 방향성 자체도 유지되지 않았습니다.
+
+**`BTC price shock → lagging ETH continuation`은 REJECTED입니다.** z threshold, ETH underreaction 비율, hold 또는 방향만 바꿔 같은 가족을 다시 탐색하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/price_lead_lag_pre_stress.csv`
+- `artifacts/edge_search/price_lead_lag_stress_2026.csv`
+- `artifacts/edge_search/price_lead_lag_zero_cost.csv`
+- `artifacts/edge_search/price_lead_lag_shadow.csv`
+- 실행 모듈: `src/quant_lab/research/price_lead_lag.py`
+
+## Weekend move → Monday reversal 사전 등록
+
+기존 연구가 가격 추세, 파생시장 포지셔닝, funding/OI, premium, taker flow, cross-asset lead-lag에 집중했으므로 이번에는 **24/7 시장의 주말 유동성 차이**를 별도 calendar mechanism으로 검증합니다. 주말에 얇은 유동성에서 발생한 BTC/ETH 움직임 일부가 평일 유동성이 돌아오는 월요일에 되돌려진다는 가설입니다.
+
+- 데이터: Binance USD-M BTCUSDT / ETHUSDT futures OHLCV
+- timeframe: 1h와 4h를 같은 시간 계약으로 검증
+- signal bar: 월요일 00:00 UTC 직전 완전히 닫힌 bar (1h는 일요일 23:00, 4h는 일요일 20:00 시작 bar)
+- weekend return: signal bar close / 48시간 전 close - 1
+- 방향: weekend return > 0이면 short, < 0이면 long
+- entry: 월요일 00:00 UTC open
+- hold: 24시간 고정, 화요일 00:00 UTC open에서 종료
+- 비용/리스크: fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-11, pre-stress 판정 뒤 진단
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 reversal을 continuation으로 뒤집거나 weekend/hold 시간을 조정하지 않음
+
+실패하면 같은 calendar family에서 요일·진입시각·보유시간만 바꾸는 재탐색은 하지 않습니다.
+
+### 실제 결과
+
+고정 규칙은 discovery와 validation에서 BTC/ETH × 1h/4h **8개 구간 모두 손실**이었습니다.
+
+| 데이터셋 | Discovery | Discovery Sharpe | Validation | Validation Sharpe | 2026 Stress |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| BTC 1h | -16.55% | -1.99 | -15.95% | -1.87 | +3.31% |
+| ETH 1h | -13.40% | -1.32 | -7.74% | -0.61 | +1.68% |
+| BTC 4h | -15.42% | -1.76 | -17.68% | -2.14 | +3.24% |
+| ETH 4h | -14.65% | -1.37 | -8.15% | -0.65 | +1.28% |
+
+비용을 0으로 둬도 discovery는 -8.90%~-12.52%, validation은 -1.61%~-13.17%로 네 데이터셋 모두 음수였습니다. 따라서 비용 문제가 아니라 2022~2025에서 주말 움직임을 월요일에 fade하는 방향 자체가 안정적이지 않았습니다. 2026만 양수이므로 최근 regime 결과를 보고 규칙을 바꾸지 않습니다.
+
+**`Weekend move → Monday reversal`은 REJECTED입니다.** continuation으로 방향을 뒤집거나 요일·진입시각·hold를 조정해 같은 calendar family를 반복하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/weekend_reversal_pre_stress.csv`
+- `artifacts/edge_search/weekend_reversal_stress_2026.csv`
+- `artifacts/edge_search/weekend_reversal_zero_cost.csv`
+- 실행 모듈: `src/quant_lab/research/weekend_reversal.py`
+
+## Extreme wick rejection 사전 등록
+
+완전한 historical liquidation event tape가 없으므로 OHLC candle 안에서 **급격한 한쪽 꼬리와 종가 회복**을 강제청산성 flow가 흡수된 proxy로 한 번만 검증합니다. breakout처럼 range 확장 방향을 따라가지 않고, 극단적 wick이 거부된 방향의 반대로 짧게 mean-reversion을 거래합니다.
+
+- 데이터: Binance USD-M BTCUSDT / ETHUSDT futures OHLCV
+- timeframe: 1h, 4h
+- candle range: `(high - low) / open`
+- extreme range: 현재 range가 현재 bar를 제외한 직전 168시간 range median의 `2배 이상`
+- lower-wick event: `(min(open, close) - low) / (high - low) >= 0.50` → long
+- upper-wick event: `(high - max(open, close)) / (high - low) >= 0.50` → short
+- 양쪽 조건이 동시에 참이거나 range가 0이면 거래하지 않음
+- entry: signal bar 다음 bar open
+- hold: 4시간 고정
+- 보유 중 새 event는 무시
+- 비용/리스크: fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-11, pre-stress 판정 뒤 진단
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 wick share, range multiple, lookback, hold 또는 방향을 조정하지 않음
+
+실패하면 candle-rejection family는 같은 OHLC 계약에서 threshold만 바꿔 반복하지 않습니다.
+
+### 실제 결과
+
+고정 규칙은 비용 포함 기준으로 discovery, validation, 2026 stress에서 BTC/ETH × 1h/4h **모든 구간이 음수**였습니다.
+
+| 데이터셋 | Discovery | Validation | 2026 Stress | Validation 거래 수 |
+| --- | ---: | ---: | ---: | ---: |
+| BTC 1h | -20.32% | -10.37% | -7.29% | 411 |
+| ETH 1h | -10.11% | -20.84% | -7.41% | 388 |
+| BTC 4h | -8.64% | -4.61% | -3.57% | 92 |
+| ETH 4h | -12.23% | -4.94% | -3.83% | 78 |
+
+비용 0에서는 BTC 1h validation +4.23%, ETH 1h discovery +5.71%처럼 일부 구간만 양수였지만 다른 자산·구간에서는 다시 음수였고, 2026 stress는 네 데이터셋 모두 음수였습니다. 따라서 실행비용만의 문제가 아니라 wick rejection 방향 자체가 multi-regime에서 안정적이지 않습니다.
+
+**`Extreme wick rejection`은 REJECTED입니다.** wick share, range multiple, lookback, hold 또는 방향을 바꿔 같은 OHLC candle-rejection family를 재탐색하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/wick_rejection_pre_stress.csv`
+- `artifacts/edge_search/wick_rejection_stress_2026.csv`
+- `artifacts/edge_search/wick_rejection_zero_cost.csv`
+- 실행 모듈: `src/quant_lab/research/wick_rejection.py`
+
+## Low-volatility managed momentum 사전 등록
+
+기존 336h momentum + EMA400 추세 규칙 자체를 다시 탐색하지 않고, **최근 변동성이 과도할 때 exposure를 끄는 risk-regime filter**만 추가합니다. 고변동 deleveraging/chop 구간보다 낮은 변동성에서 추세가 더 안정적으로 이어진다는 가설입니다.
+
+- 데이터: Binance USD-M BTCUSDT / ETHUSDT 1h·4h futures OHLCV
+- base momentum: `close_t > close_{t-336h}`
+- trend gate: `close_t > EMA_400h`
+- recent realized volatility: 1-bar log return의 직전 포함 24시간 rolling std
+- volatility reference: current recent vol을 제외한 직전 2160시간 recent-vol history의 median
+- regime gate: `recent_vol <= prior_2160h_median_vol`
+- target: base momentum + trend gate + low-vol regime가 모두 참이면 long, 아니면 cash
+- execution: 닫힌 signal bar 다음 bar open
+- 비용/리스크: fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-11, pre-stress 판정 뒤 진단
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 vol window, history, quantile 또는 momentum 파라미터를 조정하지 않음
+
+역사 stress까지 살아도 2026은 이미 본 데이터이므로 최종 승격은 2026-09-11 이후 future shadow에서만 가능합니다.
+
+### 실제 결과
+
+비용 포함 고정 규칙은 discovery와 validation에서 BTC/ETH × 1h/4h **8개 구간 모두 음수**였습니다.
+
+| 데이터셋 | Discovery | Validation | 2026 Stress | Validation 거래 수 |
+| --- | ---: | ---: | ---: | ---: |
+| BTC 1h | -4.98% | -2.65% | -1.75% | 194 |
+| ETH 1h | -7.19% | -5.91% | +1.93% | 184 |
+| BTC 4h | -8.55% | -0.21% | -0.18% | 138 |
+| ETH 4h | -11.30% | -5.39% | +6.19% | 130 |
+
+비용 0에서는 BTC 1h discovery/validation과 여러 최근 구간이 양수로 회복되지만, ETH 1h discovery -0.86%, BTC 4h discovery -3.03%, ETH 4h discovery -5.91%가 남았습니다. 따라서 낮은 변동성 regime이 거래비용을 줄이면 일부 개선되는 경향은 있어도, 네 시장과 여러 regime에서 공통 Edge로 볼 수 없습니다.
+
+**`Low-volatility managed momentum`은 REJECTED입니다.** recent-vol window, 2160h history, median threshold 또는 기존 momentum 파라미터를 조정해 같은 family를 재탐색하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/volatility_managed_momentum_pre_stress.csv`
+- `artifacts/edge_search/volatility_managed_momentum_stress_2026.csv`
+- `artifacts/edge_search/volatility_managed_momentum_zero_cost.csv`
+- 실행 모듈: `src/quant_lab/research/volatility_managed_momentum.py`
+
+## High-correlation gated momentum 사전 등록
+
+기존 breadth-confirmed momentum은 BTC와 ETH가 각각 EMA 위인지 확인했습니다. 이번 가설은 가격 수준 대신 **두 자산의 최근 수익률이 실제로 같은 공통-factor에 묶여 움직이는지**를 gate로 사용합니다. 상관이 높은 시장에서는 단일 자산의 장기 momentum이 시장 공통 추세를 반영할 가능성이 높고, 상관이 낮은 분산 국면에서는 outright momentum 노출을 줄인다는 가설입니다.
+
+- universe: BTCUSDT, ETHUSDT
+- timeframe: 1h, 4h
+- own momentum: `close_t > close_{t-336h}`
+- own trend: `close_t > EMA_400h`
+- common-factor gate: BTC/ETH 동일 timeframe log return의 직전 168시간 rolling correlation `>= 0.70`
+- correlation 계산에는 닫힌 현재 bar까지 사용하고 미래 bar는 사용하지 않음
+- target: own momentum + own trend + correlation gate가 모두 참일 때만 long, 아니면 cash
+- execution: 닫힌 signal bar 다음 bar open
+- 비용/리스크: fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-11, pre-stress 판정 뒤 진단
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 correlation window/threshold, momentum/EMA 또는 방향을 바꾸지 않음
+
+이 가설이 실패하면 correlation threshold/window만 바꿔 같은 family를 반복하지 않습니다.
+
+### 실제 결과
+
+사전 등록한 고정 규칙은 discovery와 validation에서 BTC/ETH × 1h/4h **8개 구간을 모두 통과**했습니다.
+
+| 데이터셋 | Discovery | Validation | Validation Sharpe | 2026 Stress | 2026 Sharpe |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| BTC 1h | +6.94% | +14.35% | +1.23 | -0.20% | -0.03 |
+| ETH 1h | +4.76% | +20.82% | +1.38 | +1.13% | +0.27 |
+| BTC 4h | +6.87% | +17.17% | +1.49 | +0.31% | +0.12 |
+| ETH 4h | +5.90% | +28.12% | +1.72 | -0.03% | +0.03 |
+
+비용 0에서는 discovery, validation, 2026 stress의 모든 데이터셋이 양수였습니다. 2026 stress는 BTC1h +2.12%, ETH1h +3.30%, BTC4h +1.71%, ETH4h +1.56%였습니다. 즉 공통-factor correlation gate의 gross 방향성은 남아 있지만, 현재 fee/slippage/volatility-slippage 계약에서는 두 데이터셋의 stress 수익이 0 아래로 내려가 거래 가능한 margin이 충분하지 않았습니다.
+
+**`High-correlation gated momentum`은 REJECTED입니다.** correlation threshold/window 또는 기존 momentum 파라미터를 조정해 같은 family를 다시 탐색하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/correlation_gated_momentum_pre_stress.csv`
+- `artifacts/edge_search/correlation_gated_momentum_stress_2026.csv`
+- `artifacts/edge_search/correlation_gated_momentum_zero_cost.csv`
+- `artifacts/edge_search/correlation_gated_momentum_shadow.csv`
+- 실행 모듈: `src/quant_lab/research/correlation_gated_momentum.py`
+
+## Liquidity-impact shock fade 사전 등록
+
+기존 volume breakout은 거래량이 많을 때 가격 방향을 추종했습니다. 이번 가설은 **가격 변화가 거래대금 대비 비정상적으로 큰 경우**를 얇은 유동성에서 발생한 일시적 overshoot의 proxy로 봅니다. 절대 거래량이나 wick 모양을 쓰지 않고, 동일 자산의 rolling history 대비 price impact 자체를 정규화합니다.
+
+- universe: BTCUSDT, ETHUSDT
+- timeframe: 1h, 4h
+- 1-bar return: 현재 닫힌 bar의 log return
+- quote-notional proxy: `volume × close`
+- impact: `abs(log_return) / (volume × close)`
+- threshold: 현재 impact를 제외한 직전 720시간 impact의 95% quantile 이상
+- direction: positive-return impact shock → short, negative-return impact shock → long
+- entry: signal bar 다음 bar open
+- hold: 4시간 고정
+- 보유 중 새 shock은 무시
+- 비용/리스크: fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-11, pre-stress 판정 뒤 진단
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 impact quantile/history, hold 또는 방향을 바꾸지 않음
+
+실패하면 같은 OHLCV 계약에서 impact threshold/history/방향만 바꿔 이 family를 반복하지 않습니다.
+
+### 실제 결과
+
+고정 규칙은 비용 포함 기준으로 discovery, validation, 2026 stress에서 BTC/ETH × 1h/4h **모든 데이터셋이 음수**였습니다.
+
+| 데이터셋 | Discovery | Validation | 2026 Stress | Validation 거래 수 |
+| --- | ---: | ---: | ---: | ---: |
+| BTC 1h | -11.97% | -13.59% | -7.19% | 703 |
+| ETH 1h | -11.51% | -15.84% | -4.62% | 675 |
+| BTC 4h | -6.20% | -13.17% | -4.85% | 237 |
+| ETH 4h | -6.35% | -13.38% | -5.41% | 240 |
+
+비용 0에서는 1h discovery/validation이 양수로 회복됐지만 BTC4h validation -4.52%, ETH4h validation -3.34%, BTC4h 2026 -1.61%, ETH4h 2026 -1.84%가 남았습니다. 따라서 거래비용만의 문제가 아니라 거래대금 대비 큰 가격충격을 단순 fade하는 방향 자체가 여러 timeframe과 regime에서 안정적이지 않습니다.
+
+**`Liquidity-impact shock fade`는 REJECTED입니다.** impact quantile/history, hold 또는 방향을 바꿔 같은 family를 다시 탐색하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/liquidity_impact_fade_pre_stress.csv`
+- `artifacts/edge_search/liquidity_impact_fade_stress_2026.csv`
+- `artifacts/edge_search/liquidity_impact_fade_zero_cost.csv`
+- 실행 모듈: `src/quant_lab/research/liquidity_impact_fade.py`
+
+## Trend-efficiency gated momentum 사전 등록
+
+low-volatility filter는 변동성의 크기를 줄였지만 실패했습니다. 이번 가설은 변동성 크기 대신 **가격 경로가 얼마나 한 방향으로 효율적으로 이동했는지**를 봅니다. 같은 336h 상승이라도 168시간 동안 순이동이 총 왕복 이동의 큰 비중을 차지하면 추세가 덜 choppy하고 다음 구간 지속성이 높다는 가설입니다.
+
+- universe: BTCUSDT, ETHUSDT
+- timeframe: 1h, 4h
+- base momentum: `close_t > close_{t-336h}`
+- trend gate: `close_t > EMA_400h`
+- efficiency window: 168시간
+- efficiency ratio: `abs(log(close_t) - log(close_{t-168h})) / sum(abs(1-bar log return), 168h)`
+- quality gate: efficiency ratio `>= 0.25`
+- target: base momentum + trend gate + efficiency gate가 모두 참이면 long, 아니면 cash
+- execution: 닫힌 signal bar 다음 bar open
+- 비용/리스크: fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-11, pre-stress 판정 뒤 진단
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 efficiency window/threshold 또는 기존 momentum 파라미터를 조정하지 않음
+
+실패하면 efficiency threshold/window만 바꿔 같은 path-quality family를 반복하지 않습니다.
+
+### 실제 결과
+
+고정 규칙은 BTC와 4시간 데이터에서는 대체로 양수였지만 ETH 1시간 discovery에서 실패했습니다.
+
+| 데이터셋 | Discovery | Validation | 2026 Stress | Validation 거래 수 |
+| --- | ---: | ---: | ---: | ---: |
+| BTC 1h | +1.76% | +1.42% | +2.57% | 43 |
+| ETH 1h | -4.45% | +2.32% | +3.35% | 36 |
+| BTC 4h | +6.07% | +1.25% | +0.17% | 65 |
+| ETH 4h | +8.69% | +17.22% | +2.01% | 51 |
+
+비용 0에서도 ETH1h discovery가 -3.02%로 남아 실행비용만의 문제는 아니었습니다. 2026 stress는 네 데이터셋 모두 양수였지만 BTC1h 2건, ETH1h 1건뿐이라 recent regime 결과를 독립 Edge 증거로 사용할 수 없습니다.
+
+**`Trend-efficiency gated momentum`은 REJECTED입니다.** efficiency window/threshold 또는 기존 momentum 파라미터를 바꿔 같은 path-quality family를 다시 탐색하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/trend_efficiency_momentum_pre_stress.csv`
+- `artifacts/edge_search/trend_efficiency_momentum_stress_2026.csv`
+- `artifacts/edge_search/trend_efficiency_momentum_zero_cost.csv`
+- `artifacts/edge_search/trend_efficiency_momentum_shadow.csv`
+- 실행 모듈: `src/quant_lab/research/trend_efficiency_momentum.py`
+
+## Signed-volume confirmed momentum 사전 등록
+
+기존 volume breakout은 절대 거래량 증가와 가격 breakout을 결합했습니다. 이번 가설은 **상승 bar에 실린 volume과 하락 bar에 실린 volume의 누적 방향 균형**을 사용해 추세가 실제 참여 flow로 지지되는지 확인합니다. Binance taker ratio가 아니라 OHLCV 자체에서 재현 가능한 signed-volume proxy만 사용합니다.
+
+- universe: BTCUSDT, ETHUSDT
+- timeframe: 1h, 4h
+- base momentum: `close_t > close_{t-336h}`
+- trend gate: `close_t > EMA_400h`
+- signed volume: `volume_t × sign(log_return_t)`
+- volume balance window: 168시간
+- balance: `sum(signed_volume, 168h) / sum(volume, 168h)`
+- flow gate: balance `>= +0.10`
+- target: base momentum + trend gate + signed-volume gate가 모두 참이면 long, 아니면 cash
+- execution: 닫힌 signal bar 다음 bar open
+- 비용/리스크: fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-11, pre-stress 판정 뒤 진단
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 balance threshold/window 또는 기존 momentum 파라미터를 조정하지 않음
+
+실패하면 signed-volume balance threshold/window만 바꿔 같은 family를 반복하지 않습니다.
+
+### 실제 결과
+
+고정 규칙은 discovery/validation 8개 구간 중 7개가 양수였고 2026 stress도 네 데이터셋 모두 양수였지만, BTC 4시간 discovery가 -0.19%로 사전 기준을 통과하지 못했습니다.
+
+| 데이터셋 | Discovery | Validation | 2026 Stress | Validation 거래 수 |
+| --- | ---: | ---: | ---: | ---: |
+| BTC 1h | +3.58% | +1.87% | +0.10% | 142 |
+| ETH 1h | +3.03% | +14.78% | +3.82% | 126 |
+| BTC 4h | -0.19% | +7.97% | +0.58% | 92 |
+| ETH 4h | +2.18% | +24.14% | +1.28% | 70 |
+
+비용 0에서는 BTC4h discovery도 +4.33%로 회복돼 discovery/validation/2026 전 데이터셋이 양수였습니다. 즉 signed-volume confirmation의 gross 방향성은 비교적 일관되지만, 현재 fee/slippage/volatility-slippage 계약에서는 BTC4h discovery의 margin이 부족했습니다.
+
+**`Signed-volume confirmed momentum`은 REJECTED입니다.** balance threshold/window 또는 기존 momentum 파라미터를 조정해 같은 family를 다시 탐색하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/signed_volume_momentum_pre_stress.csv`
+- `artifacts/edge_search/signed_volume_momentum_stress_2026.csv`
+- `artifacts/edge_search/signed_volume_momentum_zero_cost.csv`
+- `artifacts/edge_search/signed_volume_momentum_shadow.csv`
+- 실행 모듈: `src/quant_lab/research/signed_volume_momentum.py`
+
+## OI-turnover confirmed momentum 사전 등록
+
+raw OI 수준이나 단순 volume spike를 다시 조정하지 않고, **현재 열려 있는 포지션 규모 대비 실제 거래가 얼마나 활발한지**를 turnover로 봅니다. 오래 쌓인 포지션만 남아 있는 추세보다 OI 대비 거래 참여가 충분한 추세가 더 오래 지속된다는 가설입니다.
+
+- universe: BTCUSDT, ETHUSDT
+- timeframe: 1h, 4h
+- base momentum: `close_t > close_{t-336h}`
+- trend gate: `close_t > EMA_400h`
+- recent turnover: 직전 포함 24시간 `sum(volume) / current sum_open_interest`
+- turnover reference: 현재 turnover를 제외한 직전 2160시간 turnover history의 median
+- participation gate: `recent_turnover >= prior_2160h_median_turnover`
+- target: base momentum + trend gate + participation gate가 모두 참이면 long, 아니면 cash
+- execution: 닫힌 signal bar 다음 bar open
+- 비용/리스크: fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-11, pre-stress 판정 뒤 진단
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 turnover window/history/threshold 또는 기존 momentum 파라미터를 조정하지 않음
+
+실패하면 `volume / OI` turnover threshold/window만 바꿔 같은 family를 반복하지 않습니다. 통과하더라도 2026은 stress history이므로 2026-09-11 이후 future shadow에서만 최종 승격을 검토합니다.
+
+### 실제 결과
+
+사전 등록한 고정 규칙은 discovery/validation에서 BTC/ETH × 1h/4h **8개 구간을 모두 통과**했습니다. 그러나 2026 stress에서 BTC 1h와 BTC 4h가 비용 포함 기준으로 음수가 되어 역사 stress 생존에는 실패했습니다.
+
+| 데이터셋 | Discovery | Validation | Validation Sharpe | 2026 Stress | 2026 Sharpe |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| BTC 1h | +2.58% | +1.57% | +0.25 | -0.64% | -0.32 |
+| ETH 1h | +0.16% | +6.00% | +0.71 | +0.59% | +0.23 |
+| BTC 4h | +4.54% | +0.78% | +0.13 | -0.68% | -0.44 |
+| ETH 4h | +1.80% | +5.79% | +0.63 | +0.55% | +0.23 |
+
+비용 0 진단에서는 discovery/validation/2026의 모든 데이터셋이 양수였습니다. 2026 stress는 BTC1h +0.46%, ETH1h +1.74%, BTC4h +0.07%, ETH4h +1.57%였습니다. 즉 OI 대비 turnover가 높은 추세의 gross 방향성은 남아 있지만, 특히 BTC 2026에서 현재 fee/slippage/volatility-slippage를 감당할 여유가 거의 없습니다.
+
+**`OI-turnover confirmed momentum`은 REJECTED입니다.** turnover window/history/threshold 또는 기존 momentum 파라미터를 조정해 같은 family를 다시 탐색하지 않습니다. future shadow에는 올리지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/turnover_momentum_pre_stress.csv`
+- `artifacts/edge_search/turnover_momentum_stress_2026.csv`
+- `artifacts/edge_search/turnover_momentum_zero_cost.csv`
+- `artifacts/edge_search/turnover_momentum_shadow.csv`
+- 실행 모듈: `src/quant_lab/research/turnover_momentum.py`
+
+## Premium-stability confirmed momentum 사전 등록
+
+기존 premium fade와 premium 수준 필터는 방향·절대수준을 거래했습니다. 이번 가설은 premium의 부호나 높낮이를 사용하지 않고, **perpetual premium이 안정적인 레짐인지**만 momentum의 품질 gate로 사용합니다. premium이 빠르게 흔들리는 레버리지 재가격 구간보다 안정적인 basis 구간에서 장기 추세가 더 지속된다는 가설입니다.
+
+- universe: BTCUSDT, ETHUSDT
+- timeframe: 1h, 4h
+- base momentum: `close_t > close_{t-336h}`
+- trend gate: `close_t > EMA_400h`
+- recent premium instability: 직전 포함 24시간 `premium_close`의 rolling std
+- instability reference: 현재 recent premium std를 제외한 직전 2160시간 recent-std history의 median
+- regime gate: `recent_premium_std <= prior_2160h_median_std`
+- target: base momentum + trend gate + premium-stability gate가 모두 참이면 long, 아니면 cash
+- execution: 닫힌 signal bar 다음 bar open
+- 비용/리스크: fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-01, pre-stress 판정 뒤 진단. premium archive가 2026-08-31까지이므로 이후 날짜는 포함하지 않음
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 규칙 1개. 결과를 보고 premium-vol window/history/threshold 또는 기존 momentum 파라미터를 조정하지 않음
+
+실패하면 premium 안정성 threshold/window만 바꿔 같은 family를 반복하지 않습니다. 통과할 경우에도 2026은 stress history이므로 live premium 입력을 별도로 검증한 future shadow 없이는 승격하지 않습니다.
+
+### 실제 결과
+
+고정 규칙은 discovery/validation의 BTC/ETH × 1h/4h **8개 구간이 모두 음수**여서 pre-pass에 실패했습니다.
+
+| 데이터셋 | Discovery | Validation | Validation Sharpe | 2026 Stress |
+| --- | ---: | ---: | ---: | ---: |
+| BTC 1h | -4.81% | -2.39% | -0.34 | -0.95% |
+| ETH 1h | -1.44% | -5.91% | -0.66 | +0.98% |
+| BTC 4h | -4.75% | -1.82% | -0.24 | -2.04% |
+| ETH 4h | -4.15% | -9.50% | -0.96 | +0.55% |
+
+비용 0에서도 BTC4h discovery -0.05%, ETH4h validation -3.14%, BTC4h 2026 -1.07%가 남았습니다. 따라서 premium 안정성 gate의 실패는 단순히 거래비용이 방향성을 지운 경우가 아니며, 여러 timeframe과 regime에서 공통으로 유지되는 gross Edge도 아닙니다.
+
+**`Premium-stability confirmed momentum`은 REJECTED입니다.** premium-vol window/history/threshold 또는 기존 momentum 파라미터를 바꿔 같은 family를 다시 탐색하지 않습니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/premium_stability_momentum_pre_stress.csv`
+- `artifacts/edge_search/premium_stability_momentum_stress_2026.csv`
+- `artifacts/edge_search/premium_stability_momentum_zero_cost.csv`
+- 실행 모듈: `src/quant_lab/research/premium_stability_momentum.py`
+
+## Dual-confirmed momentum 사전 등록
+
+새 threshold를 추가하지 않고 현재 살아 있는 두 SHADOW 규칙을 그대로 결합합니다. **breadth-confirmed momentum과 global-position cap momentum이 동시에 long을 허용할 때만** 진입해, 시장 전체 상승 확인과 과도한 crowding 회피가 함께 있을 때 false positive가 줄어드는지 검증합니다.
+
+- component A: breadth-confirmed momentum의 고정 규칙 `336h momentum + EMA400 + BTC/ETH 둘 다 EMA400 위`
+- component B: global-position cap momentum의 고정 규칙 `336h momentum + EMA400 + global long/short ratio <= prior 2160h q90`
+- target: A와 B가 모두 long일 때만 long, 아니면 cash
+- universe: BTCUSDT, ETHUSDT
+- timeframe: 1h, 4h
+- execution: 닫힌 signal bar 다음 bar open
+- 비용/리스크: 두 기존 SHADOW와 동일하게 fee 5 bps, slippage 2 bps, risk 1%, stop 5%, volatility slippage multiplier 0.02
+- discovery: 2022-01-01 ~ 2023-12-31
+- validation: 2024-01-01 ~ 2025-12-31
+- stress: 2026-01-01 ~ 2026-09-11, pre-stress 판정 뒤 진단
+- pre-pass: BTC/ETH × 1h/4h 네 데이터셋 모두 discovery return > 0, validation return > 0, validation Sharpe > 0, validation trades >= 10
+- trial 수: 고정 조합 1개. q90, 2160h, 336h, EMA400 또는 breadth 정의를 결과를 보고 변경하지 않음
+
+역사 stress까지 통과해도 두 component와 마찬가지로 2026은 독립 holdout이 아니므로 즉시 승격하지 않습니다. 2026-09-11 08:00 UTC 이후 새 bar만 사용하는 future shadow에서 별도 관찰합니다.
+
+### 실제 결과와 SHADOW 판정
+
+고정 조합은 discovery/validation의 BTC/ETH × 1h/4h **8개 구간을 모두 통과**했고, 2026 stress도 네 데이터셋 모두 비용 포함 수익과 Sharpe가 양수였습니다.
+
+| 데이터셋 | Discovery | Validation | Validation Sharpe | 2026 Stress | 2026 Sharpe | 2026 거래 수 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| BTC 1h | +6.19% | +0.05% | +0.03 | +2.65% | +0.90 | 52 |
+| ETH 1h | +4.53% | +21.06% | +1.35 | +2.75% | +0.72 | 53 |
+| BTC 4h | +7.01% | +1.22% | +0.15 | +2.57% | +0.88 | 28 |
+| ETH 4h | +4.64% | +14.36% | +0.96 | +1.45% | +0.40 | 31 |
+
+BTC 1h validation은 +0.05%, Sharpe +0.03으로 margin이 얇지만 2026 stress에서는 +2.65%, Sharpe +0.90으로 양수를 유지했습니다. 이 결과는 새 독립 holdout이 아니라 이미 확인된 역사 데이터에 대한 composite 검증이므로 바로 paper 후보로 올리지는 않습니다.
+
+따라서 **`dual-confirmed momentum`을 세 번째 `SHADOW`로 등록합니다.** q90 / 2160h / 336h / EMA400 / breadth 정의를 모두 동결하고, 2026-09-11 08:00 UTC 이후 새 완성 bar에서 네 데이터셋 모두 누적 return > 0, Sharpe > 0, 거래 수 >= 10이 되기 전에는 paper 검토로 이동하지 않습니다. 현재 공통 최신 bar가 00:00 UTC라 운영 상태는 `WAITING_FOR_DATA`입니다.
+
+재현 결과 파일:
+
+- `artifacts/edge_search/dual_confirmed_momentum_pre_stress.csv`
+- `artifacts/edge_search/dual_confirmed_momentum_stress_2026.csv`
+- `artifacts/edge_search/dual_confirmed_momentum_shadow.csv`
+- 실행 모듈: `src/quant_lab/research/dual_confirmed_momentum.py`
+
+## 참고 자료
+
+- Binance public data: <https://github.com/binance/binance-public-data>
+- Binance USD-M long/short ratio: <https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Long-Short-Ratio>
+- Binance top trader account ratio: <https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Top-Long-Short-Account-Ratio>
+- Binance top trader position ratio: <https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Top-Long-Short-Position-Ratio>
+- Binance open-interest statistics: <https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Open-Interest-Statistics>
+- USD-M liquidationSnapshot stop report: <https://github.com/binance/binance-public-data/issues/337>
+- USD-M historical liquidation availability follow-up: <https://github.com/binance/binance-public-data/issues/420>
+- Bitcoin market fragmentation and order flow: <https://www.tandfonline.com/doi/full/10.1080/1350486X.2022.2080083>
+- 2026 BTC/ETH futures liquidity-state/order-flow study: <https://arxiv.org/pdf/2607.09230>
+- 2026 liquidation-cascade study: <https://arxiv.org/html/2608.03616>
+
+## Order-book 데이터 게이트와 participation-intensity 후속 검증
+
+이번 wave의 최종 결과는 **order-book `REJECTED` (사유 `BLOCKED-DATA`),
+participation-intensity `REJECTED`**입니다. 새 `PASS`/`SHADOW`는 없습니다.
+기존 3개 SHADOW의 파라미터와 추적 코드는 변경하지 않았습니다.
+
+### 사전등록과 시험 수
+
+- 호가: `docs/order-book-prereg-2026-09-11.md`, commit `6f812ad`,
+  2026-09-11 07:32:43 UTC. 데이터 기준과 조건부 1개 규칙을 수익률 확인 전에 고정.
+- 참여강도: `docs/participation-prereg-2026-09-11.md`, commit `dbb4e31`,
+  07:36:33 UTC. 파일 헤더의 수기 07:40 표기는 Git 시각으로 정정했으며 규칙 변경 없음.
+- 파싱·공식 일별 원본 복구 계약: commit `0376121`, 07:45:47 UTC,
+  participation 신호/수익률 계산 전 고정.
+- 호가 수익률 trial **0개**. 98개 파일 검사는 데이터 품질 표본이며 전략 trial이 아님.
+- 참여강도 파라미터 trial **1개**, BTC/ETH × 3기간의 primary 6행.
+  비용 0 진단 6행은 같은 거래 결정에 대한 파생 결과이며 새로운 후보가 아님.
+
+### Binance historical bookDepth 품질·기간
+
+공식 S3 목록 전체를 페이지 끝까지 읽었습니다. 범위는 2023-01-01~2026-09-10이며,
+2022년에 대한 호가 증거는 없습니다. BTC 1,346일 / ETH 1,347일이 존재합니다.
+기대 1,349일 대비 BTC는 2023-02-08, 2023-02-09, 2024-04-18이 없고,
+ETH는 2023-02-08, 2023-02-09가 없습니다. 양 자산의 최소 48시간 연속 공백이
+사전 고정한 최대 24시간 기준을 초과하므로 수익률 백테스트를 시작하지 않았습니다.
+
+매월 첫날 및 연도/기간 말일을 기계적으로 택한 98개 ZIP은 모두 공식 SHA256과
+일치했습니다. 다음 수치는 **표본**이며 전체 파일 내용의 완전성으로 외삽하지 않습니다.
+
+| 자산 | 표본 일수 | CSV 행 | timestamp 그룹 | 고정 계약상 무효 그룹 | 유효 시간 / 표본 시간 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| BTC | 49 | 1,430,300 | 138,043 | 24,935 | 877 / 1,176 |
+| ETH | 49 | 1,430,300 | 138,043 | 29,049 | 855 / 1,176 |
+
+합계 유효 시간은 1,732/2,352 = 73.64%입니다. 무효는 원본 손상을 뜻하지 않습니다.
+고정한 ±1~±5 열 구조 외 ±0.2 레벨이 추가된 파일도 있어 버전 변화로 거절된 그룹을
+포함합니다. 원본 level 집합을 `sample_quality.csv`에 함께 보존했습니다.
+이 자료는 percentage-band 누적 잔량이며 best bid/ask, 주문별 이벤트, 큐 위치를
+복원하는 데이터가 아닙니다. 품질 기준을 낮추거나 missing-day를 보간하지 않았습니다.
+
+**판정: REJECTED (데이터 계약 부적합 / BLOCKED-DATA).** 경제 메커니즘의 수익성이
+음수라고 판정한 것이 아닙니다. 연속된 원본과 버전별 스키마·관측 시점 계약을 확보해
+새 데이터 게이트를 사전등록할 때만 재검토합니다.
+
+### 참여강도 데이터와 고정 규칙
+
+공식 USD-M `klines`, `fundingRate`, `markPriceKlines` 월별 파일 342개와, 월별
+mark-price 누락 날짜를 복구한 공식 일별 파일 7개, **총 349개 SHA256 검증 파일**을
+사용했습니다. 복구는 이미 존재하는 공식 원본만 연결하며 기존 행 교체·보간은 없습니다.
+원시 archive 6,837,258 bytes, 자산당 41,640개의 연속된 1h 행입니다.
+기간은 2021-12-01 warm-up부터 2026-08-31까지입니다.
+
+- trade count/quote volume은 실제 USD-M kline 필드. 이름만으로 기존 cache를 선물로 가정하지 않음.
+- OHLC 양수·범위, 고유/연속 시각, 완성 bar, 체결 건수 정수, 유한 양수 거래량 검사.
+- 양 자산 모두 2024-10-28 20:00 UTC 한 시간만 체결 건수/거래량 0.
+  이 시간과 이후 720시간은 신호에서 제외. 2024 input 유효율 8,783/8,784 = 99.9886%.
+- 실제 funding sequence와 interval 연속성 검증. 원본 시각은 scheduled hour 대비 0~31ms.
+  사전 허용한 1초 이내 정렬만 적용하며 missing funding을 0으로 대체하지 않음.
+- 펀딩 notional은 해당 settlement의 mark-price hour open으로 평가. 정확한 millisecond
+  mark나 intrabar stop/funding 순서는 관측할 수 없어 사전 고정한 보수적 hourly convention 사용.
+
+고정 규칙: 이전 720시간 체결 건수 q95 이상 **AND** 평균 체결금액
+(`quote_volume/count`)이 이전 720시간 q25 이하일 때 현재 open→close 움직임의 반대로
+진입합니다. 이는 체결 크기 구성 가설이며 retail 투자자 식별 주장이 아닙니다.
+현재 시간을 rolling 기준에서 제외하고 다음 1h 시가 진입, 정확히 4시간 hold,
+5% stop, 진입 equity의 20% 고정 수량을 사용합니다. 추가 매수·레버리지·중복 거래 없음.
+편도 fee 5bp + slippage 2bp + 이전 완성 bar range/open ×0.02 및 실제 펀딩을 반영했습니다.
+
+### 실제 백테스트
+
+아래 수익률은 고정 20% 배분의 **계좌 수익률**입니다. Sharpe는 cash 시간을 포함한
+calendar-hour equity로 산출했으며 거래 표본 Sharpe가 아닙니다.
+
+| 자산 | 기간 | 순수익률 | Sharpe | 최대 낙폭 | 완료 거래 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| BTC | discovery 2022~2023 | -0.96% | -0.18 | -3.73% | 27 |
+| BTC | validation 2024~2025 | -1.54% | -0.52 | -2.59% | 31 |
+| BTC | stress 2026-01~08 | -5.31% | -2.34 | -6.13% | 47 |
+| ETH | discovery 2022~2023 | -7.34% | -1.23 | -9.15% | 34 |
+| ETH | validation 2024~2025 | -8.73% | -2.18 | -9.06% | 32 |
+| ETH | stress 2026-01~08 | -9.49% | -3.49 | -10.20% | 44 |
+
+6/6 primary 구간 모두 음수로 실패했습니다. 표본 부족만의 탈락도 아닙니다.
+수수료/슬리피지를 제거하고 펀딩을 유지해도 BTC validation -0.34%, stress -3.48%,
+ETH discovery -5.57%, validation -7.40%, stress -7.57%입니다.
+BTC discovery만 +0.40%였습니다. 비용을 낮추기만 하면 안정적인 Edge가 되는 구조가 아닙니다.
+비용 0과 primary의 진입/청산 시각·방향·stop 결정 일치를 검사했습니다.
+
+**판정: REJECTED, 파라미터 trial 1개 종료.** q95/q25/720h/4h와 방향을 사후 변경하지
+않습니다. 기존 volume/taker/OI family로 우회한 재튜닝도 하지 않습니다.
+
+### 기존 SHADOW 보존 및 운영 확인
+
+`position_cap_momentum`, `breadth_momentum`, `dual_confirmed_momentum`과
+`shadow_status`, `forward_shadow`, `shadow_refresh`, `binance_shadow_source`
+총 7개 파일이 작업 전 SHA256과 모두 동일합니다.
+기존 runner `uv run python -m quant_lab.research.shadow_status --root artifacts/edge_search --refresh`
+실제 실행이 성공했으며 BTC·ETH 1h 최신 완성 bar는 2026-09-11 06:00 UTC,
+1h/4h 공통 최신 bar는 00:00 UTC였습니다. position-cap/breadth는 TRACKING,
+dual-confirmed는 WAITING_FOR_DATA, 최소 거래 수 0입니다.
+새 SHADOW 등록·기존 시작 시각 변경·paper/live 연결은 없습니다.
+
+### 검증과 재현
+
+전체 pytest **139개 통과**, 변경 파일 basedpyright 오류/경고 0, ruff 통과,
+`uv build` wheel/sdist 성공. 실제 두 CLI 실행, `--help`, 잘못된 root 거절을 확인했습니다.
+원본 체크섬 변조 거절, header 없는 CSV 첫 행 보존, 호가 중복/누락/스키마/시점,
+참여강도 prefix 불변성과 720h gap warm-up, next-open/hold/stop/펀딩/비용 회귀 검증 포함.
+
+```bash
+uv run python -m quant_lab.research.book_depth_audit --refresh-inventory
+uv run python -m quant_lab.research.participation_study --download
+uv run python -m quant_lab.research.participation_study
+uv run pytest -q
+```
+
+근거 파일:
+
+- `artifacts/edge_search/order_book/{BTCUSDT,ETHUSDT}_inventory.json`
+- `artifacts/edge_search/order_book/{inventory_quality,missing_days,sample_quality}.csv`
+- `artifacts/edge_search/order_book/{sample_hourly.parquet,frozen_shadow_before.sha256,run.log}`
+- `artifacts/edge_search/participation/source_manifest.csv`, `input_quality_by_year.csv`
+- `artifacts/edge_search/participation/participation_results.csv`
+- `artifacts/edge_search/participation/*_{net,zero_cost}_{trades.csv,equity.parquet}`
+- `artifacts/edge_search/participation/*_monthly_mark_missing.csv`, `*_invalid_activity_hours.csv`
+
+공식 원본과 계약 참고:
+
+- https://github.com/binance/binance-public-data
+- https://data.binance.vision/?prefix=data/futures/um/daily/bookDepth/
+- https://data.binance.vision/?prefix=data/futures/um/monthly/klines/
+- https://data.binance.vision/?prefix=data/futures/um/monthly/fundingRate/
+- https://data.binance.vision/?prefix=data/futures/um/monthly/markPriceKlines/
+
+이번 wave는 여기서 닫습니다. 다음 후보는 신규 데이터 계약 또는 별도 경제 메커니즘을
+먼저 원장에 대조하고 사전등록해야 하며, 위 두 family의 파라미터 검색을 반복하지 않습니다.
+
+구현 commit: `8af9ef8c3fc6b1c364f82cb75014f7c069a8a07e`.
+기계 판독 결과와 주요 artifact SHA256은 `docs/edge-evidence-2026-09-11-participation.json`에 보존했습니다.
