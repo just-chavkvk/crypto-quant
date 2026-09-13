@@ -67,8 +67,8 @@ CoinYeon 고래 화면은 Hyperliquid Whale Tracker다. Hyperliquid 공식 `info
 
 1. **BTC holder-cohort flow regime — 후속 고정 trial에서 REJECTED**. 실제 결과는
    `docs/edge-search-2026-09-13.md`와 `docs/holder-cohort-flow-prereg-2026-09-13.md`를 따른다.
-2. **Point-in-time Hyperliquid whale crowding** — 현재 우수 고래 집합을 과거에 소급 적용하지 않고,
-   매일 같은 시각 roster·방향·notional을 동결 저장한 뒤 미래 수익만 평가한다.
+2. **Point-in-time Hyperliquid whale crowding** — 2026-09-13 첫 roster 20개와 snapshot을 실제로
+   고정해 `SHADOW/TRACKING`을 시작했다. 과거에 소급 적용하지 않고 미래 1d/7d 수익만 평가한다.
 3. **ETF flow surprise** — 전체 history 원출처를 확정한 뒤 `flow / AUM` 또는 rolling surprise로
    정규화해 다음 영업일/1주 BTC 반응을 검증한다. 원본 전체 행 확보 전 trial 0 유지.
 4. **Firechart/order-book pressure** — 과거 원본이 없으므로 historical Edge 탐색 대신 future

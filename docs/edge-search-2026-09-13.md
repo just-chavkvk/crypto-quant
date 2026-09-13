@@ -61,3 +61,36 @@ Bitview의 `date`, `price`, 세 feature는 모두 6,465행으로 길이가 일�
 - `artifacts/edge_search/holder_cohort_flow/source_manifest.csv`
 - `artifacts/edge_search/holder_cohort_flow/events.csv`
 - `artifacts/edge_search/holder_cohort_flow/summary.csv`
+
+## Hyperliquid whale crowding: prospective shadow 시작
+
+과거 승자 지갑을 현재 성과로 고른 뒤 과거에 소급하는 생존편향을 피하기 위해,
+`docs/hyperliquid-whale-shadow-prereg-2026-09-13.md`에 미래 관찰 규칙을 먼저 고정했다.
+
+- Hyperliquid 공개 leaderboard에서 account value >= 100,000 USDC,
+  7일 PnL > 0, 30일 PnL > 0인 계정만 남긴다.
+- 그중 all-time PnL 상위 20개 주소를 첫 실행에서 동결하고 이후 교체하지 않는다.
+- 각 주소의 `clearinghouseState`에서 BTC/ETH perp open position만 읽는다.
+- signed notional은 `sign(szi) * positionValue`, crowding은
+  `sum(signed notional) / sum(abs notional)`이다.
+- crowding의 부호만 신호로 고정한다. 양수 long, 음수 short, 0 neutral.
+- `allMids`의 같은 시점 mid를 저장하고, 다음 1일/7일 수익률만 미래 데이터로 평가한다.
+
+첫 실제 snapshot은 **2026-09-13 11:02:49 UTC**에 성공했다. frozen roster는 20개다.
+
+| 자산 | mid | long / short 계정 | gross notional | signed notional | crowding | 현재 signal |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| BTC | 76,566.50 | 3 / 3 | $28.26M | -$22.24M | -0.7872 | short |
+| ETH | 2,470.85 | 3 / 3 | $15.01M | -$13.79M | -0.9187 | short |
+
+이 수치는 **현재 crowding 관측값**이지 수익성 증거가 아니다. 1일/7일 forward 결과가 아직
+존재하지 않으므로 상태는 `SHADOW/TRACKING`이다. 최소 30개 daily snapshot과 각 horizon별
+10개 이상의 완료 non-zero 관측이 쌓이기 전에는 승격 판정을 하지 않는다.
+
+재현 자료:
+
+- `src/quant_lab/research/hyperliquid_whale_shadow.py`
+- `tests/test_hyperliquid_whale_shadow.py`
+- `artifacts/edge_search/hyperliquid_whale_shadow/frozen_roster.csv`
+- `artifacts/edge_search/hyperliquid_whale_shadow/positions_20260913T110249Z.parquet`
+- `artifacts/edge_search/hyperliquid_whale_shadow/snapshots.csv`
