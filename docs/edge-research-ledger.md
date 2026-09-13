@@ -91,6 +91,8 @@
 | 2026-09-12 | Delta-hedged cryptocurrency option variance risk premium | 원논문·Deribit DVOL/체결/상품API 조사, 금융trial0 | `BLOCKED-DATA` | DVOL−실현분산은 executable option PnL 아님. 동기화된 역사bid/ask·잔량·체인/Greeks·증거금/헤지비용 자료 필요. 단순옵션매도 수익성 미검증 | 같은 조사보고서, `cross_exchange_research/notes/options_variance.md` |
 | 2026-09-12 | Preannounced token vesting/unlock supply-pressure | ARB/OP 공식 일정·계약·공개시점 및 원논문 조사, 금융trial0 | `BLOCKED-DATA` | 예정·vested·released·추가제한없는유통·실제매도를 구분. 당시공개일정버전·상폐포함universe·실제거래가능성 미완성. 현재스프레드시트로 과거매도 추정 금지 | 같은 조사보고서, `cross_exchange_research/notes/unlock_supply.md` |
 
+| 2026-09-13 | BTC holder-cohort flow regime | LTH 1m delta + STH 1m delta + >10k BTC 1w delta sign contract, 2d lag / 7d hold / 14bp, 고정 trial 1개 | `REJECTED` | discovery 65 events mean -0.720% / win 46.15%; validation 43 events mean -1.184% / win 44.19%; 2026 stress 19 events mean -1.750%. discovery·validation gate 모두 실패. sign/horizon/wallet bucket/lag/hold/cost 사후 튜닝 금지 | `docs/holder-cohort-flow-prereg-2026-09-13.md`, `docs/edge-search-2026-09-13.md`, `holder_cohort_flow/{summary,events,source_manifest}.csv` |
+
 ## 다음 연구 순서
 
 1. global-position cap momentum q90 / 2160h는 future shadow에서 파라미터를 동결해 관찰합니다.
@@ -126,3 +128,12 @@
 - 연구 설계/결과 기록: `docs: record <edge> edge research`
 - 데이터 수집기/전략/백테스터 구현: 기능별 별도 커밋
 - 실험 결과가 바뀌면 원장의 기존 행을 지우지 말고 새 날짜 행을 추가해 이유와 변경된 데이터/가정을 남깁니다.
+
+## 2026-09-13 source audit
+
+- CoinYeon source audit: `docs/coinyeon-source-audit-2026-09-13.md`, `docs/edge-search-2026-09-13.md`.
+- Financial trial count: **1**. source audit 뒤 BTC holder-cohort flow를 별도 사전등록 후 실제 검증.
+- `REJECTED`: BTC holder-cohort flow regime — discovery/validation 평균 net signed return과 승률 모두 gate 실패.
+- `NEXT-PROSPECTIVE`: Hyperliquid whale crowding — point-in-time roster를 앞으로 저장한 뒤 미래 데이터만 평가.
+- `NEXT-DATA`: ETF flow surprise — 전체 역사 원출처와 PIT timestamp를 확정하기 전 수익률 trial 금지.
+- `BLOCKED-DATA`: CoinYeon 파이어차트/청산맵은 구조화된 역사 export가 확인되지 않아 기존 order-book/liquidation 데이터 게이트를 해제하지 않음.
